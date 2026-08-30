@@ -10,20 +10,36 @@ def g_light_user_prompt(text: str) -> str:
     return template.replace("{{text}}", text)
 
 
-def score_risk(text: str, *, model_id: str, region: str = "us-east-1") -> tuple[float, str]:
-    """Local MiniLM by default. Nova Micro only if GASC_GLIGHT_BACKEND=nova."""
+def _backend() -> str:
     import os
 
-    if os.environ.get("GASC_GLIGHT_BACKEND", "local").strip().lower() != "nova":
+    return os.environ.get("GASC_GLIGHT_BACKEND", "minilm").strip().lower()
+
+
+def score_risk(text: str, *, model_id: str, region: str = "us-east-1") -> tuple[float, str]:
+    """Paper G_light is minilm-l12-h384. local=laptop fallback; nova=appendix."""
+    backend = _backend()
+    if backend in {"local", "mac"}:
         from gasc.g_light import score_local
 
         q, label, _ms = score_local(text)
         return q, label
-    raw = converse_text(
-        bedrock_runtime(region),
-        model_id=model_id,
-        user=g_light_user_prompt(text),
-        max_tokens=64,
-        temperature=0.0,
-    )
-    return parse_risk(raw)
+    if backend == "nova":
+        raw = converse_text(
+            bedrock_runtime(region),
+            model_id=model_id,
+            user=g_light_user_prompt(text),
+            max_tokens=64,
+            temperature=0.0,
+        )
+        return parse_risk(raw)
+    from gasc.clients.minilm import function_url, score_minilm_remote
+
+    try:
+        function_url(region=region)
+    except Exception:
+        from gasc.g_light import score_local
+
+        q, label, _ms = score_local(text)
+        return q, label
+    return score_minilm_remote(text, region=region)

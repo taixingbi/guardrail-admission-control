@@ -2,8 +2,8 @@
 """E2e scout: Proposed + Maverick. Does not retune τ, Rg, or SLO.
 
 Two 40s cells at E1's 1.0 Rg mix, Tenant A, fail-closed:
-- replay_q: E0a q (E1-comparable) + ApplyGuardrail + Maverick
-- live_path: live Nova Micro + ApplyGuardrail + Maverick
+- replay_q: frozen minilm-l12-h384 q (E1-comparable) + ApplyGuardrail + Maverick
+- live_path: live minilm-l12-h384 + ApplyGuardrail + Maverick
 
 Maverick inflight is capped at E0c C*=2. t_llm_ms = E0c TTFT P50.
 E1–E6 stay Maverick-off; this only measures the missing LLM hop.
@@ -18,16 +18,14 @@ import random
 import time
 from pathlib import Path
 
-from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
-from gasc.clients import g_light_user_prompt
-from gasc.clients.bedrock import THROTTLE, apply_guardrail, bedrock_runtime, converse_stream, converse_text
+from gasc.clients.minilm import score_minilm_remote
+from gasc.clients.bedrock import apply_guardrail, bedrock_runtime, converse_stream
 from gasc.eval_binary import percentile
 from gasc.limiter import StrongLimiter
 from gasc.replay_data import load_live_q, load_replay_prompts, q_for, replay_dir, split_safe_unsafe
 from gasc.report import aggregate
-from gasc.risk import parse_risk
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
@@ -41,31 +39,13 @@ T_LLM_MS = 250.0
 QUEUE_TIMEOUT_S = 2.0
 C_STAR = 2
 LLM = "us.meta.llama4-maverick-17b-instruct-v1:0"
-G_LIGHT = "us.amazon.nova-micro-v1:0"
 MAX_TOKENS = 64
-RETRIES = 6
 
 
-def _is_throttle(exc: ClientError) -> bool:
-    return exc.response.get("Error", {}).get("Code", "") in THROTTLE
-
-
-def _score_live(client, text: str) -> tuple[float, str, float]:
-    delay = 2.0
-    last: Exception | None = None
-    for attempt in range(RETRIES):
-        t0 = time.perf_counter()
-        try:
-            raw = converse_text(client, model_id=G_LIGHT, user=g_light_user_prompt(text), max_tokens=64)
-            q, label = parse_risk(raw)
-            return q, label, (time.perf_counter() - t0) * 1000
-        except ClientError as exc:
-            last = exc
-            if not _is_throttle(exc) or attempt == RETRIES - 1:
-                raise
-            time.sleep(delay)
-            delay = min(delay * 2, 16.0)
-    raise last  # pragma: no cover
+def _score_live(_client, text: str) -> tuple[float, str, float]:
+    t0 = time.perf_counter()
+    q, label = score_minilm_remote(text)
+    return q, label, (time.perf_counter() - t0) * 1000
 
 
 async def _one(

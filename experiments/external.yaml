@@ -2,7 +2,7 @@ name: external_replay
 mode: transfer
 tau: 0.50
 retune: false
-g_light: us.amazon.nova-micro-v1:0
+g_light: minilm-l12-h384
 sets:
   - {id: xstest, labels: native, file: data/external/xstest_prompts.csv}
   - {id: wildguardtest, labels: native, file: data/external/wildguardtest.jsonl}

@@ -6,7 +6,7 @@ Fill the measured cells after E0. Do not retune \( \tau \), \( B_g \), prompts, 
 
 | Knob | Value | Status |
 | --- | --- | --- |
-| G_light | Local MiniLM `microsoft/MiniLM-L12-H384-uncased` (`models/g_light`) | locked (not Nova Micro) |
+| G_light | `minilm-l12-h384` (paper name; Function URL, not laptop MiniLM, not Nova Micro) | locked |
 | G_light train | WildGuardMix **train** only (freeze / XSTest / WildGuardTest held-out) | locked |
 | G_strong | ApplyGuardrail `bklyj6c5nrb5` v1 (CLI, account `646821141010`) | locked |
 | LLM | Llama 4 Maverick `us.meta.llama4-maverick-17b-instruct-v1:0` | locked |
@@ -28,5 +28,5 @@ Fill the measured cells after E0. Do not retune \( \tau \), \( B_g \), prompts, 
 - Train G_light on the P4 freeze or on WildGuardTest / XSTest.
 - Change guardrail filter strengths after E0b.
 - Use Nova Micro / ApplyGuardrail / Maverick labels as freeze acceptance.
-- Put Lambda Function URL or ECS/ALB on the experiment path.
+- Cite laptop MiniLM (`models/g_light`, P50 6.2 ms) as paper G_light. Paper G_light is `minilm-l12-h384`. Re-score E0a via Function URL before replacing E1–E6 \(q\).
 - Map AWS `bedrock-tenant-a/b/c/d` to paper Tenant A/B.

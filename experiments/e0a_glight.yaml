@@ -1,8 +1,8 @@
 name: e0a_glight
 experiment: E0a
-backend: nova-micro
+backend: minilm-l12-h384
 seed_limit: 16
-command: python scripts/run_e0a.py
+command: python scripts/score_g_light.py
 metrics: [auroc, auprc, unsafe_recall, fpr, p50_ms, p95_ms, escalation_rate]
-note: Freeze tau after this run. Do not retune.
-output: results/e0a/
+note: Paper G_light is minilm-l12-h384 (not laptop MiniLM). Freeze tau=0.50. Do not retune.
+output: results/g_light/

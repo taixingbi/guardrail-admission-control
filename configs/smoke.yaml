@@ -12,6 +12,6 @@ tenants:
   - {tenant_id: A, tau: 0.75, slo_ms: 600, reserved_share: 0.0}
   - {tenant_id: B, tau: 0.40, slo_ms: 800, reserved_share: 0.4}
 models:
-  g_light: us.amazon.nova-micro-v1:0
+  g_light: minilm-l12-h384
   llm: us.meta.llama4-maverick-17b-instruct-v1:0
   judge: us.anthropic.claude-haiku-4-5-20251001-v1:0

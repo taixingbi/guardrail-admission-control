@@ -8,6 +8,6 @@ variants: [S0, S1, S2, S3]
 policy: proposed
 fail_closed: true
 models:
-  g_light: us.amazon.nova-micro-v1:0
+  g_light: minilm-l12-h384
   llm: us.meta.llama4-maverick-17b-instruct-v1:0
   judge: us.anthropic.claude-haiku-4-5-20251001-v1:0

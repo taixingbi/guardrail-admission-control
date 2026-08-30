@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     aws_region: str = "us-east-1"
-    g_light_model: str = "us.amazon.nova-micro-v1:0"
+    g_light_model: str = "minilm-l12-h384"
     llm_model: str = "us.meta.llama4-maverick-17b-instruct-v1:0"
     guardrail_id: str = ""
     guardrail_version: str = "DRAFT"

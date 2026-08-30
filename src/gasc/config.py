@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class ModelIds(BaseModel):
-    g_light: str = "us.amazon.nova-micro-v1:0"
+    g_light: str = "minilm-l12-h384"
     llm: str = "us.meta.llama4-maverick-17b-instruct-v1:0"
     judge: str = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 

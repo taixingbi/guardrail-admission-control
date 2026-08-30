@@ -20,4 +20,4 @@ tenants:
   B: {tau: 0.40, slo_ms: 800, reserved_share: 0.4}
 command: python scripts/run_e2.py
 output: results/replay/e2/
-note: Bg is a gateway safety budget. Formal cell uses live G_light q so A/B thresholds diverge on 0.40≤q<0.75.
+note: Bg is a gateway safety budget. Formal q is minilm-l12-h384 (not laptop MiniLM). A/B thresholds diverge on 0.40≤q<0.75.

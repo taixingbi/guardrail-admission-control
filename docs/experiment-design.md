@@ -9,14 +9,14 @@ Core sentence: **ApplyGuardrail is a finite shared safety resource.** The gatewa
 
 | Role | Component | Purpose |
 | --- | --- | --- |
-| G_light | Local MiniLM classifier (`models/g_light`) | inexpensive risk estimate \(q(x)\in[0,1]\) |
+| G_light | MiniLM-L12-H384 (`minilm-l12-h384` Function URL alias) | inexpensive risk estimate \(q(x)\in[0,1]\) |
 | G_strong | Bedrock ApplyGuardrail `bklyj6c5nrb5` | authoritative safety enforcement |
 | LLM | Bedrock Llama 4 Maverick 17B Instruct | user response generation |
 
 ```
 Request + tenant policy
         ↓
-Local MiniLM classifier    (G_light)
+MiniLM-L12-H384            (G_light)
         ↓
    q(x), SAFE / REVIEW
         ↓
@@ -31,7 +31,9 @@ direct    strong     reject
 Llama 4 Maverick 17B
 ```
 
-Inexpensive local risk estimation gates an expensive managed safety service. \(q(x)\) is a classifier probability (continuous), not a bimodal LLM JSON score. Nova Micro remains an appendix characterization only (`GASC_GLIGHT_BACKEND=nova`).
+Inexpensive MiniLM risk estimation gates an expensive managed safety service. \(q(x)\) is a classifier probability (continuous), not a bimodal LLM JSON score.
+
+**Paper G_light is `minilm-l12-h384`** (bedrock-tenants Function URL alias; Lambda in-process classifier). It is **not** laptop MiniLM and **not** a Bedrock GPU / Converse FM. `models/g_light` / `GASC_GLIGHT_BACKEND=local` is a fallback only — do not cite it as G_light. Nova Micro is appendix-only (`GASC_GLIGHT_BACKEND=nova`).
 
 The scarce resource this paper schedules is **gateway safety budget \(B_g\)** (ApplyGuardrail admissions), not LLM tokens.
 
@@ -41,7 +43,7 @@ v1 runtime is management `646821141010` (IAM user `taixingbi`). Member accounts 
 
 Paper Tenant A/B live only in gateway policy. Do not map `bedrock-tenant-a` to Tenant A.
 
-Create G_strong with `./scripts/create-guardrail.sh`. Experiment path is local gateway → Bedrock. No Terraform, Lambda, or ECS.
+Create G_strong with `./scripts/create-guardrail.sh`. E0a scores \(q(x)\) by calling `minilm-l12-h384`. E1–E6 replay those frozen scores (no Function URL on the replay hot path). Connectivity smoke may use `ACCOUNT=a|b|c|d`. Paper Tenant A/B are not those AWS accounts.
 
 ## Gateway safety budget \(B_g\) (not provider capacity)
 
@@ -125,11 +127,11 @@ Rejects are policy-compliant and safe when they avoid admitting GT-unsafe traffi
 
 E0 characterize and freeze. E1–E6 keep the same frame. Formal cells use frozen / live \(q(x)\). Headlines: **E2** (tenant policy), **E5** (fail-closed), **E6** (early reject).
 
-- **E0a** Local MiniLM G_light. Freeze \(\tau=0.50\). Held-out freeze AUROC 0.985, P50/P95 6.2/7.4 ms. Tenant-split \(0.40\le q<0.75\): 220 across freeze+XSTest+WildGuardTest (Nova Micro had 14). Do not retune \(\tau\).
+- **E0a** Paper G_light = `minilm-l12-h384`. Re-score freeze + XSTest + WildGuardTest via Function URL (`python scripts/score_g_light.py`). Keep \(\tau=0.50\). Do **not** cite laptop MiniLM AUROC 0.985 / P50–P95 6.2/7.4 ms as the paper cell (appendix only). After re-score, compare the \(0.40\le q<0.75\) band; re-run E1–E6 only if that band moves.
 - **E0b** Raw ApplyGuardrail characterization (do not rerun).
 - **E0c** Define gateway safety budget \(B_g = 0.4\) rps; Maverick knee sets \(R_{gateway}\).
-- **E1** Static safety-budget sweep. Keep.
-- **E2** Multi-tenant contention (local MiniLM \(q\), 5 reps). Split-band: Proposed A 100% direct, B 100% strong. Isolation Proposed vs load-aware **65.5% / 40.3%** vs **29.9% / 27.1%** at 90:10 / 70:30. Do not retune \(\tau\) or \(B_g\).
+- **E1** Static safety-budget sweep. Keep until E0a `minilm-l12-h384` \(q\) is frozen.
+- **E2** Multi-tenant contention (`minilm-l12-h384` \(q\), 5 reps). Split-band: Proposed A 100% direct, B 100% strong. Isolation numbers below are from laptop MiniLM \(q\) — replace after E0a re-score. Do not retune \(\tau\) or \(B_g\).
 - **E3** Dynamic safety demand. Update: live \(q(x)\), 5 reps. Hypothesis: Proposed **preserves the safety floor with bounded goodput cost** (not “highest throughput”).
 - **E4** Tenant-targeted safety-resource exhaustion. Update: constant total RPS, risky mix explodes strong-guard demand; optional A-flood / B-normal isolation.
 - **E5** Fail-open vs fail-closed. Keep + 5 reps.
@@ -137,4 +139,4 @@ E0 characterize and freeze. E1–E6 keep the same frame. Formal cells use frozen
 
 ## Out of scope
 
-Paper 7 ASR/PSR, HotpotQA, RL/WFQ, Terraform, Lambda/ECS on the hot path, retuning after freeze.
+Paper 7 ASR/PSR, HotpotQA, RL/WFQ, Terraform, ECS/ALB as the gateway, retuning after freeze. G_light’s MiniLM is the Function URL alias `minilm-l12-h384`, not a laptop-only runtime.

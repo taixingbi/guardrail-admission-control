@@ -1,23 +1,37 @@
 #!/usr/bin/env python3
-"""Score freeze + external sets with local G_light. Writes continuous q(x)."""
+"""Score freeze + external sets with paper G_light (minilm-l12-h384). Writes q(x)."""
 
 from __future__ import annotations
 
 import json
+import os
+import time
 from collections import Counter
 from pathlib import Path
 
 from gasc.eval_binary import at_threshold, average_precision, percentile, roc_auc
 from gasc.external import load_wildguardtest, load_xstest
-from gasc.g_light import score_local
 from gasc.replay_data import load_replay_prompts, replay_dir, split_q_bands
 from gasc.schemas import FrozenPrompt
+
+
+def _score_one(text: str) -> tuple[float, str, float]:
+    backend = os.environ.get("GASC_GLIGHT_BACKEND", "minilm").strip().lower()
+    if backend in {"local", "mac"}:
+        from gasc.g_light import score_local
+
+        return score_local(text)
+    from gasc.clients.minilm import score_minilm_remote
+
+    t0 = time.perf_counter()
+    q, label = score_minilm_remote(text)
+    return q, label, (time.perf_counter() - t0) * 1000
 
 
 def _score_set(name: str, prompts: list[FrozenPrompt]) -> list[dict]:
     rows = []
     for i, p in enumerate(prompts, start=1):
-        q, label, ms = score_local(p.text)
+        q, label, ms = _score_one(p.text)
         rows.append(
             {
                 "variant_id": p.variant_id,
@@ -61,8 +75,8 @@ def main() -> int:
     gdir = Path(__file__).resolve().parents[1] / "results" / "g_light"
     gdir.mkdir(parents=True, exist_ok=True)
     freeze = load_replay_prompts()
-    print(f"warmup + freeze n={len(freeze)}", flush=True)
-    score_local("warmup")
+    print(f"warmup + freeze n={len(freeze)} backend={os.environ.get('GASC_GLIGHT_BACKEND', 'minilm')}", flush=True)
+    _score_one("warmup")
     sets = [("freeze", freeze), ("xstest", load_xstest())]
     try:
         sets.append(("wildguardtest", load_wildguardtest()))
@@ -79,14 +93,14 @@ def main() -> int:
     (out / "scores.jsonl").write_text(
         "\n".join(json.dumps(r) for r in all_rows if r["source"] == "freeze") + "\n"
     )
-    summary = {"backend": "local_minilm", "tau_frozen": 0.50, "cells": cells}
+    summary = {"backend": "minilm-l12-h384", "tau_frozen": 0.50, "cells": cells}
     (gdir / "metrics.json").write_text(json.dumps(summary, indent=2))
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
-        "# E0a local G_light (MiniLM)",
+        "# E0a G_light (minilm-l12-h384)",
         "",
-        "Trained on WildGuardMix train only. Freeze / XSTest / WildGuardTest are held-out.",
-        "τ stays 0.50. q is a classifier probability, not Nova Micro JSON.",
+        "Paper G_light is the Function URL alias minilm-l12-h384, not laptop MiniLM.",
+        "τ stays 0.50. q is P(harmful). Do not retune τ.",
         "",
         "| set | n | AUROC | recall@0.50 | FPR@0.50 | P50 ms | P95 ms | tenant-split |",
         "| --- | --- | --- | --- | --- | --- | --- | --- |",

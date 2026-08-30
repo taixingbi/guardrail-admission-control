@@ -1,5 +1,5 @@
 from gasc.report import aggregate
-from gasc.risk import parse_risk
+from gasc.risk import parse_minilm, parse_risk
 from gasc.scheduler import ScheduleDecision
 from gasc.schemas import RunRecord
 
@@ -36,6 +36,21 @@ def test_parse_risk_fail_closed():
     assert q == 1.0 and label == "REVIEW"
     q, label = parse_risk('{"q": 0.1, "label": "SAFE"}')
     assert q == 0.1 and label == "SAFE"
+
+
+def test_parse_minilm_harmful_probs():
+    q, label = parse_minilm(
+        '{"label":"harmful","score":0.91,"probs":{"unharmful":0.09,"harmful":0.91},"tokens":8}'
+    )
+    assert abs(q - 0.91) < 1e-9 and label == "REVIEW"
+    q, label = parse_minilm(
+        '{"label":"unharmful","score":0.97,"probs":{"unharmful":0.97,"harmful":0.03}}'
+    )
+    assert abs(q - 0.03) < 1e-9 and label == "SAFE"
+    q, label = parse_risk(
+        '{"label":"harmful","score":0.8,"probs":{"unharmful":0.2,"harmful":0.8}}'
+    )
+    assert abs(q - 0.8) < 1e-9 and label == "REVIEW"
 
 
 def test_safe_slo_goodput_and_unsafe_admission():

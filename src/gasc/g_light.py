@@ -1,4 +1,4 @@
-"""Local G_light: MiniLM binary classifier. q(x) = P(REVIEW | prompt)."""
+"""Laptop fallback G_light. Paper G_light is minilm-l12-h384 (Function URL)."""
 
 from __future__ import annotations
 

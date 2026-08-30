@@ -24,7 +24,7 @@ def load_replay_prompts() -> list[FrozenPrompt]:
 
 
 def load_live_q(path: Path | None = None) -> dict[str, float]:
-    """Prefer local MiniLM scores; fall back to Nova Micro E0a."""
+    """Prefer minilm-l12-h384 scores; fall back to Nova Micro E0a."""
     scores = path or (LOCAL_SCORES if LOCAL_SCORES.exists() else E0A_SCORES)
     if not scores.exists():
         return {}
