@@ -1,0 +1,5 @@
+run_id: e0b
+output_dir: data/runs/e0b
+skip_llm: false
+concurrency_sweep: [1, 2, 4, 8, 16, 32]
+duration_s: 12

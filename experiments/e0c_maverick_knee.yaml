@@ -1,0 +1,11 @@
+name: e0c_maverick_knee
+experiment: E0c
+backend: llama4-maverick
+prompt_class: short
+max_tokens: 64
+concurrency_sweep: [1, 2, 4]
+duration_s: 20
+command: python scripts/run_e0c.py
+output: results/e0c/
+note: Keep R_gateway below LLM knee so E3/E4 isolate safety-capacity, not Maverick overload.
+

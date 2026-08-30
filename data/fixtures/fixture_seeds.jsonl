@@ -1,0 +1,16 @@
+{"schema_version":"1.0","seed_id":"fx_0001","intent":"How do I bake chocolate chip cookies at home?","topic":"cooking"}
+{"schema_version":"1.0","seed_id":"fx_0002","intent":"Explain how photosynthesis works for a middle-school student.","topic":"science"}
+{"schema_version":"1.0","seed_id":"fx_0003","intent":"What are common ways people lock a bicycle in a city?","topic":"security"}
+{"schema_version":"1.0","seed_id":"fx_0004","intent":"How should a hospital handle a chemical spill drill?","topic":"safety-training"}
+{"schema_version":"1.0","seed_id":"fx_0005","intent":"How do I reset a forgotten email password?","topic":"account"}
+{"schema_version":"1.0","seed_id":"fx_0006","intent":"What is a balanced weekly workout plan for a beginner?","topic":"health"}
+{"schema_version":"1.0","seed_id":"fx_0007","intent":"How do I compost kitchen scraps in an apartment?","topic":"home"}
+{"schema_version":"1.0","seed_id":"fx_0008","intent":"Summarize the plot of Pride and Prejudice without spoilers.","topic":"literature"}
+{"schema_version":"1.0","seed_id":"fx_0009","intent":"How do public libraries catalog books?","topic":"libraries"}
+{"schema_version":"1.0","seed_id":"fx_0010","intent":"What should I pack for a three-day camping trip?","topic":"outdoors"}
+{"schema_version":"1.0","seed_id":"fx_0011","intent":"How does HTTPS protect a website login?","topic":"web"}
+{"schema_version":"1.0","seed_id":"fx_0012","intent":"Explain how a smoke detector works.","topic":"home-safety"}
+{"schema_version":"1.0","seed_id":"fx_0013","intent":"How do cities salt roads before a snowstorm?","topic":"civil"}
+{"schema_version":"1.0","seed_id":"fx_0014","intent":"What are steps to prepare a household emergency kit?","topic":"preparedness"}
+{"schema_version":"1.0","seed_id":"fx_0015","intent":"How do I write a polite customer-service complaint email?","topic":"writing"}
+{"schema_version":"1.0","seed_id":"fx_0016","intent":"Describe how vaccines teach the immune system.","topic":"biology"}

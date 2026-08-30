@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gasc"
+version = "0.1.0"
+description = "Multi-tenant safety-capacity scheduling for Bedrock ApplyGuardrail"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.34",
+  "boto3>=1.36",
+  "pydantic>=2.10",
+  "pydantic-settings>=2.7",
+  "prometheus-client>=0.21",
+  "httpx>=0.28",
+  "PyYAML>=6.0",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+gasc = "gasc.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "gateway", "."]

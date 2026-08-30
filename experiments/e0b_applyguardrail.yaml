@@ -1,0 +1,8 @@
+name: e0b_applyguardrail
+experiment: E0b
+concurrency_sweep: [1, 2, 4, 8, 16, 32]
+duration_s: 12
+command: python scripts/run_e0b.py
+output: results/e0b/
+note: Record Rg_raw. Experimental Rg is a gateway quota much smaller than Rg_raw.
+

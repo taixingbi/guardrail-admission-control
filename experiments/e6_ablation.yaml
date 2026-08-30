@@ -1,0 +1,15 @@
+name: e6_ablation
+experiment: E6
+mode: open_loop
+reuse_trace: e3_proposed_240_360s_1.5Rg
+r_gateway_rps: 3.01
+rg_rps: 0.4
+duration_s: 120
+variants:
+  - {id: full, use_tenant: true, use_deadline: true, use_early_reject: true, overflow: reject}
+  - {id: no_tenant, use_tenant: false, use_deadline: true, use_early_reject: true, overflow: reject}
+  - {id: no_deadline, use_tenant: true, use_deadline: false, use_early_reject: true, overflow: reject}
+  - {id: no_early_reject, use_tenant: true, use_deadline: true, use_early_reject: false, overflow: queue}
+command: python scripts/run_e6.py
+output: results/e6/
+note: Replays E3 proposed overload. NoTenant is a null ablation while q is bimodal 0/1.

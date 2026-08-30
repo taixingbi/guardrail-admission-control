@@ -1,0 +1,13 @@
+run_id: main
+output_dir: data/runs/main
+seed_limit: 500
+use_fixture_seeds: false
+skip_llm: false
+reuse_from: null
+variants: [S0, S1, S2, S3]
+policy: proposed
+fail_closed: true
+models:
+  g_light: us.amazon.nova-micro-v1:0
+  llm: us.meta.llama4-maverick-17b-instruct-v1:0
+  judge: us.anthropic.claude-haiku-4-5-20251001-v1:0

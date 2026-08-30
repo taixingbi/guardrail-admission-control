@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+*.pyc
+.env
+*.egg-info/
+dist/
+build/
+.DS_Store
+.mplconfig/
+
+# Experiment artifacts (keep fixtures)
+data/runs/
+data/external/*.parquet
+data/external/.cache/
+data/external/test/
+results/*
+!results/.gitkeep

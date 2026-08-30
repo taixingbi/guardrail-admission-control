@@ -1,0 +1,10 @@
+{
+  "filtersConfig": [
+    {"type": "HATE", "inputStrength": "HIGH", "outputStrength": "HIGH"},
+    {"type": "INSULTS", "inputStrength": "HIGH", "outputStrength": "HIGH"},
+    {"type": "SEXUAL", "inputStrength": "HIGH", "outputStrength": "HIGH"},
+    {"type": "VIOLENCE", "inputStrength": "HIGH", "outputStrength": "HIGH"},
+    {"type": "MISCONDUCT", "inputStrength": "HIGH", "outputStrength": "HIGH"},
+    {"type": "PROMPT_ATTACK", "inputStrength": "HIGH", "outputStrength": "NONE"}
+  ]
+}

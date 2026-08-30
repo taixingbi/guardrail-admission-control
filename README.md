@@ -14,7 +14,7 @@ Locked design: [docs/experiment-design.md](docs/experiment-design.md). Knobs: [F
 | G_strong | ApplyGuardrail | authoritative safety |
 | LLM | Llama 4 Maverick 17B Instruct | user response |
 
-AWS `bedrock-tenant-a/b/c/d` are runtime accounts, not paper Tenant A/B.
+Paper Tenant A/B are gateway policies, not AWS accounts. v1 runs in management `646821141010`.
 
 ## Setup
 
@@ -24,16 +24,16 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-Member stack (does **not** create the Organization or Lambda):
+The paper needs:
+
+1. AWS creds that can call Bedrock (same pattern as Paper 9: local gateway → Converse / ApplyGuardrail). v1 uses management `646821141010`.
+2. Nova Micro and Llama 4 Maverick enabled in that account.
+3. A Guardrail ID in `.env` as `GASC_GUARDRAIL_ID`.
 
 ```bash
-./scripts/tf-apply-member.sh a
-./scripts/tf-apply-member.sh b
-./scripts/tf-apply-member.sh c
-./scripts/tf-apply-member.sh d
+./scripts/create-guardrail.sh   # once; writes GASC_GUARDRAIL_ID
+./scripts/smoke-bedrock.sh      # nova-micro, apply-guardrail, llama4-maverick
 ```
-
-Connectivity smoke lives in [bedrock-tenants](https://github.com/taixingbi/bedrock-tenants) (`ACCOUNT=a ./scripts/smoke.sh nova-micro`). Experiment traffic is this gateway → Bedrock with role `gasc-experiment`.
 
 ## Run
 
@@ -44,7 +44,7 @@ gasc -c configs/smoke.yaml run --skip-llm
 pytest
 ```
 
-Gateway (after Terraform outputs are in `.env`):
+Gateway:
 
 ```bash
 uvicorn gateway.app.main:app --port 8080
@@ -62,4 +62,3 @@ uvicorn gateway.app.main:app --port 8080
 | P6 | `6_metrics/metrics.json` |
 
 Ground truth must not use Nova Micro, ApplyGuardrail, or Maverick.
-# guardrail-admission-control

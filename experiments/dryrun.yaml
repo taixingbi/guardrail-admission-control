@@ -1,0 +1,5 @@
+name: dryrun
+experiment: dryrun
+rps: 2
+tenants: [A, B]
+note: Local gateway smoke. Requires gasc run --skip-llm first.

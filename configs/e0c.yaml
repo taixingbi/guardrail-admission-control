@@ -1,0 +1,6 @@
+run_id: e0c
+output_dir: data/runs/e0c
+model: us.meta.llama4-maverick-17b-instruct-v1:0
+concurrency_sweep: [1, 2, 4]
+duration_s: 20
+max_tokens: 64

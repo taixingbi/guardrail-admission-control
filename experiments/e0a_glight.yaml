@@ -1,0 +1,8 @@
+name: e0a_glight
+experiment: E0a
+backend: nova-micro
+seed_limit: 16
+command: python scripts/run_e0a.py
+metrics: [auroc, auprc, unsafe_recall, fpr, p50_ms, p95_ms, escalation_rate]
+note: Freeze tau after this run. Do not retune.
+output: results/e0a/

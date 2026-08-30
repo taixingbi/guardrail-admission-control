@@ -1,0 +1,17 @@
+name: e4_safety_exhaustion
+experiment: E4
+mode: open_loop
+headline: true
+r_gateway_rps: 3.01
+rg_rps: 0.4
+duration_s: 420
+bin_s: 10
+tenant: A
+policies: [always_strong, risk_only, load_aware, proposed]
+phases:
+  - {until_s: 120, suspicious_frac: 0.05}
+  - {until_s: 300, suspicious_frac: 0.50}
+  - {until_s: 420, suspicious_frac: 0.05}
+command: python scripts/run_e4.py
+output: results/e4/
+note: Constant RPS. Attack inflates ApplyGuardrail demand without LLM overload. Offered strong ≈ 0.38 → 3.76 → 0.38 Rg.

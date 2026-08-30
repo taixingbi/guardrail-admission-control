@@ -1,0 +1,6 @@
+extends: smoke.yaml
+run_id: e0a
+output_dir: data/runs/e0a
+seed_limit: 16
+use_fixture_seeds: true
+skip_llm: true

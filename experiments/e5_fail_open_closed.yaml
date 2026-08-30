@@ -1,0 +1,13 @@
+name: e5_fail_open_closed
+experiment: E5
+mode: open_loop
+r_gateway_rps: 3.01
+rg_rps: 0.4
+duration_s: 60
+strong_demand_frac_of_rg: [1.5, 2.0]
+policies:
+  - {id: proposed_fail_closed, fail_closed: true, use_deadline: true}
+  - {id: proposed_fail_open, fail_closed: false, use_deadline: false}
+command: python scripts/run_e5.py
+output: results/e5/
+note: Fail-open turns off deadline so exhaustion reaches bypass. Fail-closed is frozen B4.

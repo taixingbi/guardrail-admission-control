@@ -1,0 +1,17 @@
+run_id: smoke
+output_dir: data/runs/smoke
+seed_limit: 4
+use_fixture_seeds: true
+skip_llm: true
+variants: [S0, S1, S2, S3]
+policy: proposed
+fail_closed: true
+rg_rps: 0.4
+strong_inflight: 2
+tenants:
+  - {tenant_id: A, tau: 0.75, slo_ms: 600, reserved_share: 0.0}
+  - {tenant_id: B, tau: 0.40, slo_ms: 800, reserved_share: 0.4}
+models:
+  g_light: us.amazon.nova-micro-v1:0
+  llm: us.meta.llama4-maverick-17b-instruct-v1:0
+  judge: us.anthropic.claude-haiku-4-5-20251001-v1:0
