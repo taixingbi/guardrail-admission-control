@@ -7,16 +7,16 @@ Core sentence: **ApplyGuardrail is a finite shared safety resource.** The gatewa
 
 ## Roles (do not mix)
 
-| Role | Bedrock component | Alias / ID | Purpose |
-| --- | --- | --- | --- |
-| G_light | Amazon Nova Micro | `nova-micro` → `us.amazon.nova-micro-v1:0` | cheap risk estimation / routing |
-| G_strong | ApplyGuardrail API | `bklyj6c5nrb5` via `./scripts/create-guardrail.sh` | authoritative safety enforcement |
-| LLM | Llama 4 Maverick 17B Instruct | `llama4-maverick` → `us.meta.llama4-maverick-17b-instruct-v1:0` | user response generation |
+| Role | Component | Purpose |
+| --- | --- | --- |
+| G_light | Local MiniLM classifier (`models/g_light`) | inexpensive risk estimate \(q(x)\in[0,1]\) |
+| G_strong | Bedrock ApplyGuardrail `bklyj6c5nrb5` | authoritative safety enforcement |
+| LLM | Bedrock Llama 4 Maverick 17B Instruct | user response generation |
 
 ```
 Request + tenant policy
         ↓
-Amazon Nova Micro          (G_light)
+Local MiniLM classifier    (G_light)
         ↓
    q(x), SAFE / REVIEW
         ↓
@@ -31,9 +31,9 @@ direct    strong     reject
 Llama 4 Maverick 17B
 ```
 
-Parse failure on G_light JSON → treat as REVIEW (estimator fail-closed).
+Inexpensive local risk estimation gates an expensive managed safety service. \(q(x)\) is a classifier probability (continuous), not a bimodal LLM JSON score. Nova Micro remains an appendix characterization only (`GASC_GLIGHT_BACKEND=nova`).
 
-Nova Micro and Maverick have separate RPM/TPM. ApplyGuardrail has its own RPS/TUPS. The scarce resource this paper schedules is **G_strong capacity**, not LLM tokens.
+The scarce resource this paper schedules is **gateway safety budget \(B_g\)** (ApplyGuardrail admissions), not LLM tokens.
 
 ## AWS org (runtime, not paper tenants)
 
@@ -43,16 +43,16 @@ Paper Tenant A/B live only in gateway policy. Do not map `bedrock-tenant-a` to T
 
 Create G_strong with `./scripts/create-guardrail.sh`. Experiment path is local gateway → Bedrock. No Terraform, Lambda, or ECS.
 
-## Two-level \(R_g\)
+## Gateway safety budget \(B_g\) (not provider capacity)
 
-ApplyGuardrail default quota is far above Maverick knee (~1.8 rps on this account family). Using raw API throughput as \(R_g\) would overload the LLM first.
+ApplyGuardrail raw throughput on this account is tens of RPS (E0b: \(B_g^{raw} \approx 71\) rps at C=16). Using that as the experimental scarce resource would not model an enterprise guardrail / cost quota, and would also sit above the Maverick knee.
 
-- **E0b raw:** concurrency sweep `{1,2,4,8,16,32}` → \(R_g^{raw}\) and healthy latency. Characterization only.
-- **Experimental \(R_g\):** gateway token-bucket + inflight cap, with \(R_g \ll \min(R_g^{raw}, 0.7 R_{knee}^{llm})\). Justified as a shared org safety budget.
-- Real ApplyGuardrail calls still happen. The gateway only decides who may consume the budget.
+- **E0b:** raw ApplyGuardrail characterization (latency / throughput). Do not treat this as the paper’s capacity.
+- **E0c:** set the **gateway-controlled safety budget** \(B_g = 0.4\) rps (token-bucket + inflight). \(B_g \ll \min(B_g^{raw}, 0.7 R_{knee}^{llm})\).
+- Real ApplyGuardrail calls still happen. The gateway decides who may consume \(B_g\).
 - Forbidden: `quota% → change C`. Quotas are static context.
 
-After E0 freeze \( \tau \), \( R_g \), prompts, guardrail filters, primary account. E1–E6 replay only.
+After E0 freeze \( \tau \), \( B_g \), prompts, guardrail filters, primary account. E1–E6 replay only. Formal cells use frozen / live G_light \(q(x)\), not oracle \(\{0,1\}\).
 
 ## Dataset protocol
 
@@ -103,7 +103,7 @@ never: overload → bypass required guardrail
 Tenants (logical):
 
 - **A normal:** strong if \(q \ge 0.75\), SLO 600 ms, no reserved floor
-- **B sensitive:** strong if \(q \ge 0.40\), SLO 800 ms, reserved share of \(C_g\) / \(R_g\) (policy-derived, not arrival share)
+- **B sensitive:** strong if \(q \ge 0.40\), SLO 800 ms, reserved share of \(B_g\) (policy-derived, not arrival share)
 
 E6: Full / `-NoTenant` / `-NoDeadline` / `-NoEarlyReject`.
 
@@ -123,17 +123,17 @@ Rejects are policy-compliant and safe when they avoid admitting GT-unsafe traffi
 
 ## Campaign
 
-E0 characterize and freeze. E1–E6 replay the same 2000 prompts. Open-loop loadgen. Headlines are **E3** and **E4**.
+E0 characterize and freeze. E1–E6 keep the same frame. Formal cells use frozen / live \(q(x)\). Headlines: **E2** (tenant policy), **E5** (fail-closed), **E6** (early reject).
 
-- **E0a** Nova Micro: AUROC/AUPRC, unsafe recall, FPR, P50/P95, escalation rate. Freeze \( \tau \).
-- **E0b** ApplyGuardrail concurrency sweep → \(R_g^{raw}\), then lock experimental \(R_g\).
-- **E0c** Maverick knee scout (short prompts). Keep \(R_{gateway}\) below LLM knee. Not a main-text RQ.
-- **E1** static strong demand \(0.25\ldots 1.50 R_g\) via S2/S3 mix; total RPS fixed.
-- **E2** strong demand \(\approx 1.3 R_g\); A:B = 90:10 / 70:30 / 50:50 / 30:70.
-- **E3** constant gateway RPS; mix \(0.5 \to 0.9 \to 1.5 \to 0.6 R_g\) over 480 s.
-- **E4** constant RPS; suspicious/adversarial 5% → 50% → 5%.
-- **E5** fail-open vs fail-closed at \(1.5 R_g\) and \(2.0 R_g\).
-- **E6** ablations on an E3/E4 overload phase.
+- **E0a** Local MiniLM G_light. Freeze \(\tau=0.50\). Held-out freeze AUROC 0.985, P50/P95 6.2/7.4 ms. Tenant-split \(0.40\le q<0.75\): 220 across freeze+XSTest+WildGuardTest (Nova Micro had 14). Do not retune \(\tau\).
+- **E0b** Raw ApplyGuardrail characterization (do not rerun).
+- **E0c** Define gateway safety budget \(B_g = 0.4\) rps; Maverick knee sets \(R_{gateway}\).
+- **E1** Static safety-budget sweep. Keep.
+- **E2** Multi-tenant contention (local MiniLM \(q\), 5 reps). Split-band: Proposed A 100% direct, B 100% strong. Isolation Proposed vs load-aware **65.5% / 40.3%** vs **29.9% / 27.1%** at 90:10 / 70:30. Do not retune \(\tau\) or \(B_g\).
+- **E3** Dynamic safety demand. Update: live \(q(x)\), 5 reps. Hypothesis: Proposed **preserves the safety floor with bounded goodput cost** (not “highest throughput”).
+- **E4** Tenant-targeted safety-resource exhaustion. Update: constant total RPS, risky mix explodes strong-guard demand; optional A-flood / B-normal isolation.
+- **E5** Fail-open vs fail-closed. Keep + 5 reps.
+- **E6** Deadline / early-reject ablation. Keep + 5 reps. Full vs −NoEarlyReject is the systems headline.
 
 ## Out of scope
 

@@ -1,6 +1,13 @@
 import json
 
-from gasc.replay_data import FROZEN_PROMPTS, load_live_q, load_replay_prompts, q_for, split_safe_unsafe
+from gasc.replay_data import (
+    FROZEN_PROMPTS,
+    load_live_q,
+    load_replay_prompts,
+    q_for,
+    split_q_bands,
+    split_safe_unsafe,
+)
 from gasc.schemas import FrozenPrompt
 
 
@@ -35,3 +42,8 @@ def test_q_for_prefers_live_e0a(tmp_path):
     assert q_for(safe, live) == 0.95
     assert q_for(unsafe, live) == 1.0
     assert q_for(safe, {}) == 0.0
+    tagged = safe.model_copy(update={"metadata": {"q": 0.6}})
+    assert q_for(tagged, {}) == 0.6
+    bands = split_q_bands([tagged, unsafe])
+    assert tagged in bands["tenant_split"]
+    assert unsafe in bands["both_strong"]

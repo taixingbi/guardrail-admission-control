@@ -14,7 +14,7 @@ class AcquireResult:
 
 
 class StrongLimiter:
-    """ApplyGuardrail inflight + optional token-bucket Rg, with tenant reserved floors."""
+    """ApplyGuardrail inflight + gateway safety-budget token bucket (Bg), with tenant floors."""
 
     def __init__(
         self,
@@ -24,6 +24,7 @@ class StrongLimiter:
         reserved_share: dict[str, float] | None = None,
         overflow_mode: str = "reject",
         rg_rps: float | None = None,
+        bg_rps: float | None = None,
         burst: int = 1,
     ) -> None:
         self._limit = max(int(inflight_limit), 1)
@@ -33,7 +34,8 @@ class StrongLimiter:
             raise ValueError(f"unknown overflow_mode: {overflow_mode}")
         self._overflow_mode = mode
         self._reserved_share = dict(reserved_share or {})
-        self._rg_rps = float(rg_rps) if rg_rps and rg_rps > 0 else None
+        rate = bg_rps if bg_rps is not None else rg_rps
+        self._rg_rps = float(rate) if rate and rate > 0 else None
         self._burst = max(int(burst), 1)
         self._shared_tokens = float(self._burst)
         self._reserved_tokens: dict[str, float] = {

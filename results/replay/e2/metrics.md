@@ -1,44 +1,59 @@
-# E2 multi-tenant contention (freeze replay, 120s)
+# E2 multi-tenant contention (formal, live q, 5 reps)
 
-Strong demand 1.3 Rg, R_gateway=3.01, 120s/cell. q=e0a_live.
-Proposed reserves 40% of Rg for Tenant B. Other policies share one bucket.
-`G_safe_B` is dominated by safe-direct. Isolation = checked vs starved among B required-strong.
-35s freeze cell archived in `results/replay/e2_35s/`.
+Gateway safety budget Bg=0.4 rps (not ApplyGuardrail provider capacity). R_gateway=3.01, 120s/cell × 5 reps.
+q = frozen/live G_light. Tenant-split band is 0.40 ≤ q < 0.75 (A direct, B strong).
+Isolation = checked vs starved among B required-strong. Pooled over reps.
+
+## Tenant-split routing (pooled)
+
+| policy | A:B | split_A | A direct | split_B | B need_strong | B checked |
+| --- | --- | --- | --- | --- | --- | --- |
+| always_strong | 90%:10% | 435 | 0 | 44 | 44 | 9 |
+| always_strong | 70%:30% | 366 | 0 | 153 | 153 | 22 |
+| always_strong | 50%:50% | 271 | 0 | 249 | 249 | 43 |
+| always_strong | 30%:70% | 155 | 0 | 325 | 325 | 43 |
+| risk_only | 90%:10% | 464 | 154 | 44 | 33 | 8 |
+| risk_only | 70%:30% | 331 | 107 | 139 | 101 | 30 |
+| risk_only | 50%:50% | 236 | 72 | 254 | 173 | 42 |
+| risk_only | 30%:70% | 159 | 58 | 398 | 275 | 67 |
+| load_aware | 90%:10% | 485 | 156 | 56 | 41 | 11 |
+| load_aware | 70%:30% | 374 | 117 | 165 | 112 | 34 |
+| load_aware | 50%:50% | 256 | 92 | 278 | 197 | 51 |
+| load_aware | 30%:70% | 148 | 42 | 358 | 259 | 63 |
+| proposed | 90%:10% | 491 | 491 | 47 | 47 | 29 |
+| proposed | 70%:30% | 367 | 367 | 170 | 170 | 69 |
+| proposed | 50%:50% | 253 | 253 | 270 | 270 | 87 |
+| proposed | 30%:70% | 167 | 167 | 396 | 396 | 92 |
+
+## Isolation (pooled B required-strong)
 
 | policy | A:B | G_safe | G_safe_B | need_B | checked_B | starved_B | n_B_unsafe | UAR_B |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| always_strong | 90%:10% | 0.175 | 0.017 | 34 | 3 | 31 | 6 | 0.000 |
-| always_strong | 70%:30% | 0.125 | 0.025 | 108 | 14 | 94 | 22 | 0.000 |
-| always_strong | 50%:50% | 0.133 | 0.067 | 172 | 21 | 151 | 25 | 0.000 |
-| always_strong | 30%:70% | 0.158 | 0.142 | 265 | 38 | 227 | 46 | 0.022 |
-| risk_only | 90%:10% | 2.492 | 0.258 | 1 | 1 | 0 | 1 | 0.000 |
-| risk_only | 70%:30% | 2.608 | 0.758 | 16 | 8 | 8 | 16 | 0.000 |
-| risk_only | 50%:50% | 2.525 | 1.167 | 26 | 13 | 13 | 26 | 0.000 |
-| risk_only | 30%:70% | 2.550 | 1.658 | 41 | 19 | 22 | 41 | 0.000 |
-| load_aware | 90%:10% | 2.392 | 0.300 | 6 | 2 | 4 | 6 | 0.000 |
-| load_aware | 70%:30% | 2.433 | 0.842 | 17 | 5 | 12 | 17 | 0.000 |
-| load_aware | 50%:50% | 2.450 | 1.183 | 33 | 10 | 23 | 33 | 0.000 |
-| load_aware | 30%:70% | 2.542 | 1.742 | 37 | 16 | 21 | 37 | 0.000 |
-| proposed | 90%:10% | 2.483 | 0.258 | 8 | 6 | 2 | 8 | 0.000 |
-| proposed | 70%:30% | 2.492 | 0.717 | 14 | 13 | 1 | 13 | 0.000 |
-| proposed | 50%:50% | 2.608 | 1.283 | 25 | 16 | 9 | 25 | 0.000 |
-| proposed | 30%:70% | 2.525 | 1.667 | 39 | 25 | 14 | 39 | 0.000 |
+| always_strong | 90%:10% | 0.105 | 0.007 | 168 | 23 | 145 | 105 | 0.038 |
+| always_strong | 70%:30% | 0.115 | 0.012 | 536 | 68 | 468 | 302 | 0.030 |
+| always_strong | 50%:50% | 0.112 | 0.038 | 910 | 123 | 787 | 543 | 0.014 |
+| always_strong | 30%:70% | 0.093 | 0.052 | 1270 | 157 | 1113 | 713 | 0.015 |
+| risk_only | 90%:10% | 1.792 | 0.110 | 83 | 26 | 57 | 86 | 0.239 |
+| risk_only | 70%:30% | 1.662 | 0.303 | 293 | 90 | 203 | 322 | 0.238 |
+| risk_only | 50%:50% | 1.470 | 0.557 | 479 | 129 | 350 | 526 | 0.266 |
+| risk_only | 30%:70% | 1.203 | 0.657 | 715 | 172 | 543 | 740 | 0.235 |
+| load_aware | 90%:10% | 1.773 | 0.073 | 107 | 32 | 75 | 117 | 0.208 |
+| load_aware | 70%:30% | 1.638 | 0.325 | 284 | 77 | 207 | 297 | 0.248 |
+| load_aware | 50%:50% | 1.392 | 0.450 | 520 | 133 | 387 | 551 | 0.228 |
+| load_aware | 30%:70% | 1.230 | 0.692 | 722 | 160 | 562 | 735 | 0.209 |
+| proposed | 90%:10% | 1.988 | 0.095 | 116 | 76 | 40 | 104 | 0.195 |
+| proposed | 70%:30% | 1.712 | 0.265 | 352 | 142 | 210 | 301 | 0.170 |
+| proposed | 50%:50% | 1.505 | 0.447 | 570 | 176 | 394 | 515 | 0.156 |
+| proposed | 30%:70% | 1.225 | 0.590 | 832 | 210 | 622 | 717 | 0.117 |
 
 ## Read
 
-Checked rate among B required-strong (`checked_B / need_B`):
+Local MiniLM \(q(x)\), 4037 scored prompts, **220** in \(0.40\le q<0.75\). \(B_g=0.4\), 120 s × 5 reps. Isolation = checked / (checked + starved) among B required-strong.
 
-| policy | 90:10 | 70:30 | 50:50 | 30:70 |
-| --- | --- | --- | --- | --- |
-| always_strong | 3/34 (9%) | 14/108 (13%) | 21/172 (12%) | 38/265 (14%) |
-| risk_only | 1/1 | 8/16 (50%) | 13/26 (50%) | 19/41 (46%) |
-| load_aware | 2/6 (33%) | 5/17 (29%) | 10/33 (30%) | 16/37 (43%) |
-| proposed | **6/8 (75%)** | **13/14 (93%)** | 16/25 (64%) | 25/39 (64%) |
+**Tenant thresholds now move routes.** On the split band, Proposed sends every A request direct (491/491, 367/367, 253/253, 167/167) and every B request to strong. always_strong sends none of those A requests direct. That is the \(q\approx 0.6\), A \(\tau=0.75\) vs B \(\tau=0.40\) test Nova Micro could not run.
 
-- B offered-strong ≈ `mix_B × 1.3 Rg` (0.05 / 0.16 / 0.26 / 0.36 rps). Reservation is 0.16 rps. At 90:10 and 70:30 the floor covers B; at 50:50 and 30:70 B's own demand overflows and leftover starves — expected, not a bug.
-- Always-Strong offers ~7.5 Rg. Deadline / queue timeout starve everyone; B is not isolated.
-- Risk-Only and Load-Aware share one 0.4 rps bucket. About half of B's required-strong is `strong_full` or deadline.
-- `n_strong_B` stays 0 whenever ApplyGuardrail blocks and the route is rewritten to `reject`. Isolation must use `apply_guardrail_action`, not final route.
-- 90:10 `n_B_unsafe` is 1–8 (risk_only drew 1). Better than the 35s 0–3, still a thin tail. 70:30 is the clean isolation contrast (13/14 vs 5/17).
-- Live E0a q (1888/1888). On this freeze q is bimodal, so routing matches oracle. UAR_B is 0 except always_strong 30:70 (0.022) — ApplyGuardrail `NONE`, not a bypass.
-- τ, `Rg`, and tenant knobs unchanged.
+**Isolation.** Proposed vs load-aware at 90:10 / 70:30: **65.5% / 40.3%** vs **29.9% / 27.1%**. The reserved share still protects B when A dominates. The 70:30 gap is smaller than the old bimodal-\(q\) campaign; do not quote those earlier percentages.
+
+**Safety / goodput.** Proposed \(G_{safe}\) 1.99 / 1.71 / 1.51 / 1.23. Highest at 90:10 (risk_only 1.79). At 30:70 the risk-gated policies cluster. always_strong sits at \(\approx 0.11\). Proposed \(UAR_B\) 0.12–0.20 (risk_only 0.24–0.27): MiniLM underscores some GT-unsafe below \(\tau_B=0.40\), especially XSTest. ApplyGuardrail remains the authority. Do not retune \(\tau\) or \(B_g\).
+
+\(n_{B,unsafe}\) pooled is 86–740. The thin-count problem is gone.

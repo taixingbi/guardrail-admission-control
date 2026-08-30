@@ -5,6 +5,7 @@ policies: [always_strong, risk_only, load_aware, proposed]
 strong_demand_frac_of_rg: [0.50, 1.00, 1.50]
 r_gateway_rps: 3.01
 rg_rps: 0.4
+bg_rps: 0.4
 duration_s: 40
 command: python scripts/run_e1.py
 output: results/e1/

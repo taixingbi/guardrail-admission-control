@@ -13,5 +13,10 @@ build/
 # Experiment artifacts (keep fixtures)
 data/runs/
 data/external/*.parquet
+data/external/*.jsonl
 data/external/.cache/
 data/external/test/
+data/external/train/
+results/*
+!results/.gitkeep
+models/g_light/

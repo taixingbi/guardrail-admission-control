@@ -22,6 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+g_light = ["torch>=2.2", "transformers>=4.44", "huggingface_hub>=0.24", "pyarrow>=16"]
 
 [project.scripts]
 gasc = "gasc.cli:main"

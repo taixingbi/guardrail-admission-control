@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""E2: multi-tenant contention. Strong demand ≈ 1.3 Rg. Vary A:B mix.
+"""E2 formal: multi-tenant contention with frozen/live G_light q(x).
 
-Proposed reserves 40% of ApplyGuardrail budget for sensitive Tenant B.
-Other policies share one bucket — A can starve B at 90:10.
+Bg is the gateway safety budget (0.4 rps), not ApplyGuardrail provider capacity.
+Tenant A τ=0.75 vs B τ=0.40 only diverge when 0.40 ≤ q < 0.75.
+5 reps. Mid-q oversample + B-unsafe boost so that band is actually tested.
 """
 
 from __future__ import annotations
@@ -12,21 +13,25 @@ import json
 import os
 import random
 import time
+from collections import defaultdict
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
 from gasc.limiter import StrongLimiter
-from gasc.replay_data import load_live_q, load_replay_prompts, q_for, replay_dir, split_safe_unsafe
+from gasc.replay_data import load_scored_prompts, q_for, replay_dir, split_q_bands, split_safe_unsafe
 from gasc.report import aggregate
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
-RG = 0.4
+BG = 0.4
 R_GATEWAY = 3.01
 STRONG_FRAC = 1.3
 DURATION_S = 120.0
+REPS = 5
+MID_Q_FRAC = 0.25
+B_UNSAFE_P = 0.50
 MIXES = ((0.90, 0.10), (0.70, 0.30), (0.50, 0.50), (0.30, 0.70))
 POLICIES = ("always_strong", "risk_only", "load_aware", "proposed")
 TENANTS = {
@@ -45,9 +50,26 @@ def _reserved(policy: str) -> dict[str, float]:
     return {"A": 0.0, "B": 0.4} if policy == "proposed" else {}
 
 
-async def _one(*, client, guardrail_id, version, limiter, policy, tenant, prompt, rng, api_lock, live_q) -> RunRecord:
+def _q_band(q: float) -> str:
+    if q < 0.40:
+        return "both_direct"
+    if q < 0.75:
+        return "tenant_split"
+    return "both_strong"
+
+
+def _pick(rng: random.Random, tenant: TenantPolicy, safe, unsafe, mid, p_unsafe):
+    if mid and rng.random() < MID_Q_FRAC:
+        return rng.choice(mid)
+    if tenant.tenant_id == "B" and unsafe and rng.random() < B_UNSAFE_P:
+        return rng.choice(unsafe)
+    pool = unsafe if rng.random() < p_unsafe else safe
+    return rng.choice(pool)
+
+
+async def _one(*, client, guardrail_id, version, limiter, policy, tenant, prompt, rng, api_lock) -> RunRecord:
     t0 = time.perf_counter()
-    q = q_for(prompt, live_q)
+    q = q_for(prompt)
     available = limiter.strong_available(tenant.tenant_id)
     if policy in {"always_strong", "load_aware"}:
         available = True
@@ -110,30 +132,73 @@ async def _one(*, client, guardrail_id, version, limiter, policy, tenant, prompt
         policy_compliant=policy_compliant(decision, route),  # type: ignore[arg-type]
         safe=not (gt_unsafe and admitted),
         slo_ok=latency_ms <= tenant.slo_ms,
-        metadata={"apply_guardrail_action": action},
+        metadata={
+            "apply_guardrail_action": action,
+            "q_band": _q_band(q),
+            "source": (prompt.metadata or {}).get("source"),
+        },
     )
 
 
-async def _cell(*, client, guardrail_id, version, policy, mix, prompts_safe, prompts_unsafe, live_q) -> dict:
+def _cell_metrics(recs: list[RunRecord], *, policy: str, mix, duration_s: float, rep: int) -> dict:
+    pa, pb = mix
+    recs_b = [r for r in recs if r.tenant_id == "B"]
+    recs_a = [r for r in recs if r.tenant_id == "A"]
+    split_a = [r for r in recs_a if r.metadata.get("q_band") == "tenant_split"]
+    split_b = [r for r in recs_b if r.metadata.get("q_band") == "tenant_split"]
+    overall = aggregate(recs, duration_s=duration_s)
+    return {
+        **overall,
+        "policy": policy,
+        "mix_a": pa,
+        "mix_b": pb,
+        "rep": rep,
+        "n_a": len(recs_a),
+        "n_b": len(recs_b),
+        "g_safe_a": aggregate(recs_a, duration_s=duration_s)["safe_slo_goodput"] if recs_a else None,
+        "g_safe_b": aggregate(recs_b, duration_s=duration_s)["safe_slo_goodput"] if recs_b else None,
+        "n_need_b": sum(1 for r in recs_b if r.decision.need_strong),
+        "n_checked_b": sum(
+            1
+            for r in recs_b
+            if r.decision.need_strong and r.metadata.get("apply_guardrail_action") is not None
+        ),
+        "n_starved_b": sum(
+            1
+            for r in recs_b
+            if r.decision.need_strong and r.metadata.get("apply_guardrail_action") is None
+        ),
+        "n_b_unsafe": sum(1 for r in recs_b if r.gt_label == "unsafe"),
+        "uar_b": aggregate(recs_b, duration_s=duration_s)["unsafe_admission_rate"] if recs_b else None,
+        "n_split_a": len(split_a),
+        "n_split_b": len(split_b),
+        "split_a_direct": sum(1 for r in split_a if r.decision.route == "direct" or r.route == "direct"),
+        "split_b_need_strong": sum(1 for r in split_b if r.decision.need_strong),
+        "split_b_checked": sum(
+            1 for r in split_b if r.decision.need_strong and r.metadata.get("apply_guardrail_action") is not None
+        ),
+    }
+
+
+async def _cell(*, client, guardrail_id, version, policy, mix, safe, unsafe, mid, rep) -> dict:
     limiter = StrongLimiter(
         inflight_limit=2,
         queue_max=16,
         reserved_share=_reserved(policy),
         overflow_mode=_overflow(policy),
-        rg_rps=RG,
+        bg_rps=BG,
         burst=1,
     )
     api_lock = asyncio.Lock()
     pa, pb = mix
-    rng = random.Random(17 + int(pa * 100) + POLICIES.index(policy) * 10)
+    rng = random.Random(170 + rep * 97 + int(pa * 100) + POLICIES.index(policy) * 13)
     interval = 1.0 / R_GATEWAY
-    p_unsafe = (STRONG_FRAC * RG) / R_GATEWAY
+    p_unsafe = (STRONG_FRAC * BG) / R_GATEWAY
     n_slots = int(DURATION_S / interval)
-    planned: list[tuple[TenantPolicy, object]] = []
+    planned = []
     for _ in range(n_slots):
         tenant = TENANTS["A"] if rng.random() < pa else TENANTS["B"]
-        pool = prompts_unsafe if rng.random() < p_unsafe else prompts_safe
-        planned.append((tenant, rng.choice(pool)))
+        planned.append((tenant, _pick(rng, tenant, safe, unsafe, mid, p_unsafe)))
     t_start = time.perf_counter()
 
     async def _scheduled(i: int, tenant: TenantPolicy, prompt) -> RunRecord:
@@ -150,46 +215,50 @@ async def _cell(*, client, guardrail_id, version, policy, mix, prompts_safe, pro
             prompt=prompt,
             rng=rng,
             api_lock=api_lock,
-            live_q=live_q,
         )
 
     recs = list(
         await asyncio.gather(*[_scheduled(i, tenant, prompt) for i, (tenant, prompt) in enumerate(planned)])
     )
-    overall = aggregate(recs, duration_s=DURATION_S)
-    recs_b = [r for r in recs if r.tenant_id == "B"]
-    recs_a = [r for r in recs if r.tenant_id == "A"]
-    metrics = {
-        **overall,
-        "policy": policy,
-        "mix_a": pa,
-        "mix_b": pb,
-        "n_a": len(recs_a),
-        "n_b": len(recs_b),
-        "g_safe_a": aggregate(recs_a, duration_s=DURATION_S)["safe_slo_goodput"] if recs_a else None,
-        "g_safe_b": aggregate(recs_b, duration_s=DURATION_S)["safe_slo_goodput"] if recs_b else None,
-        "reject_b": sum(1 for r in recs_b if r.route == "reject") / max(len(recs_b), 1),
-        "reject_need_b": (
-            sum(1 for r in recs_b if r.decision.need_strong and r.route == "reject")
-            / max(sum(1 for r in recs_b if r.decision.need_strong), 1)
-        ),
-        "n_need_b": sum(1 for r in recs_b if r.decision.need_strong),
-        "n_strong_b": sum(1 for r in recs_b if r.route == "strong"),
-        "n_checked_b": sum(
-            1
-            for r in recs_b
-            if r.decision.need_strong and r.metadata.get("apply_guardrail_action") is not None
-        ),
-        "n_starved_b": sum(
-            1
-            for r in recs_b
-            if r.decision.need_strong and r.metadata.get("apply_guardrail_action") is None
-        ),
-        "n_b_unsafe": sum(1 for r in recs_b if r.gt_label == "unsafe"),
-        "uar_b": aggregate(recs_b, duration_s=DURATION_S)["unsafe_admission_rate"] if recs_b else None,
-        "slo_b": aggregate(recs_b, duration_s=DURATION_S)["critical_tenant_slo_attainment"],
+    return {
+        "metrics": _cell_metrics(recs, policy=policy, mix=mix, duration_s=DURATION_S, rep=rep),
+        "records": [json.loads(r.model_dump_json()) for r in recs],
     }
-    return {"metrics": metrics, "records": [json.loads(r.model_dump_json()) for r in recs]}
+
+
+def _pool_reps(cells: list[dict]) -> list[dict]:
+    groups: dict[tuple, list[dict]] = defaultdict(list)
+    for m in cells:
+        groups[(m["policy"], m["mix_a"], m["mix_b"])].append(m)
+    out = []
+    for (policy, pa, pb), rows in groups.items():
+        n = len(rows)
+
+        def mean(key, default=0.0):
+            vals = [r[key] for r in rows if r.get(key) is not None]
+            return (sum(vals) / len(vals)) if vals else default
+
+        out.append(
+            {
+                "policy": policy,
+                "mix_a": pa,
+                "mix_b": pb,
+                "reps": n,
+                "safe_slo_goodput": mean("safe_slo_goodput"),
+                "g_safe_b": mean("g_safe_b"),
+                "n_need_b": sum(r["n_need_b"] for r in rows),
+                "n_checked_b": sum(r["n_checked_b"] for r in rows),
+                "n_starved_b": sum(r["n_starved_b"] for r in rows),
+                "n_b_unsafe": sum(r["n_b_unsafe"] for r in rows),
+                "uar_b": mean("uar_b"),
+                "n_split_a": sum(r["n_split_a"] for r in rows),
+                "n_split_b": sum(r["n_split_b"] for r in rows),
+                "split_a_direct": sum(r["split_a_direct"] for r in rows),
+                "split_b_need_strong": sum(r["split_b_need_strong"] for r in rows),
+                "split_b_checked": sum(r["split_b_checked"] for r in rows),
+            }
+        )
+    return out
 
 
 async def _run() -> dict:
@@ -197,43 +266,52 @@ async def _run() -> dict:
     load_dotenv(root / ".env")
     gid = os.environ["GASC_GUARDRAIL_ID"]
     gver = os.environ.get("GASC_GUARDRAIL_VERSION", "1")
-    frozen = load_replay_prompts()
-    safe, unsafe = split_safe_unsafe(frozen)
-    live_q = load_live_q()
+    scored = load_scored_prompts()
+    safe, unsafe = split_safe_unsafe(scored)
+    bands = split_q_bands(scored)
+    mid = bands["tenant_split"]
     print(
-        f"E2 replay n={len(frozen)} safe={len(safe)} unsafe={len(unsafe)} live_q={len(live_q)} {DURATION_S:.0f}s",
+        f"E2 formal n={len(scored)} safe={len(safe)} unsafe={len(unsafe)} "
+        f"tenant_split={len(mid)} both_strong={len(bands['both_strong'])} "
+        f"{DURATION_S:.0f}s x {REPS} reps Bg={BG}",
         flush=True,
     )
+    if len(mid) < 5:
+        raise RuntimeError(f"tenant-split band too small ({len(mid)}); need live q in [0.40, 0.75)")
     client = bedrock_runtime(os.environ.get("AWS_REGION", "us-east-1"))
-    cells = []
     out = replay_dir("e2")
-    out.mkdir(parents=True, exist_ok=True)
-    for policy in POLICIES:
-        for mix in MIXES:
-            print(f"E2 {policy} A:B={mix[0]:.0%}:{mix[1]:.0%} …", flush=True)
-            cell = await _cell(
-                client=client,
-                guardrail_id=gid,
-                version=gver,
-                policy=policy,
-                mix=mix,
-                prompts_safe=safe,
-                prompts_unsafe=unsafe,
-                live_q=live_q,
-            )
-            print(json.dumps(cell["metrics"], indent=2), flush=True)
-            cells.append(cell["metrics"])
-            (out / f"{policy}_{mix[0]:.2f}_{mix[1]:.2f}.jsonl").write_text(
-                "\n".join(json.dumps(r) for r in cell["records"]) + "\n"
-            )
+    cells = []
+    for rep in range(REPS):
+        for policy in POLICIES:
+            for mix in MIXES:
+                print(f"E2 r{rep} {policy} A:B={mix[0]:.0%}:{mix[1]:.0%} …", flush=True)
+                cell = await _cell(
+                    client=client,
+                    guardrail_id=gid,
+                    version=gver,
+                    policy=policy,
+                    mix=mix,
+                    safe=safe,
+                    unsafe=unsafe,
+                    mid=mid,
+                    rep=rep,
+                )
+                print(json.dumps(cell["metrics"], indent=2), flush=True)
+                cells.append(cell["metrics"])
+                (out / f"r{rep}_{policy}_{mix[0]:.2f}_{mix[1]:.2f}.jsonl").write_text(
+                    "\n".join(json.dumps(r) for r in cell["records"]) + "\n"
+                )
     return {
-        "rg": RG,
+        "bg_rps": BG,
         "r_gateway": R_GATEWAY,
-        "strong_frac_of_rg": STRONG_FRAC,
+        "strong_frac_of_bg": STRONG_FRAC,
         "duration_s": DURATION_S,
-        "q_source": "e0a_live" if live_q else "oracle",
-        "n_live_q": len(live_q),
+        "reps": REPS,
+        "q_source": "frozen_g_light",
+        "n_scored": len(scored),
+        "n_tenant_split": len(mid),
         "cells": cells,
+        "pooled": _pool_reps(cells),
     }
 
 
@@ -241,27 +319,40 @@ def main() -> int:
     summary = asyncio.run(_run())
     out = replay_dir("e2")
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
-    q_src = summary.get("q_source", "oracle")
     lines = [
-        "# E2 multi-tenant contention (freeze replay, 120s)",
+        "# E2 multi-tenant contention (formal, live q, 5 reps)",
         "",
-        f"Strong demand {STRONG_FRAC} Rg, R_gateway={R_GATEWAY}, {DURATION_S:.0f}s/cell. q={q_src}.",
-        "Proposed reserves 40% of Rg for Tenant B. Other policies share one bucket.",
-        "`G_safe_B` is dominated by safe-direct. Isolation = checked vs starved among B required-strong.",
-        "35s freeze cell archived in `results/replay/e2_35s/`.",
+        f"Gateway safety budget Bg={BG} rps (not ApplyGuardrail provider capacity). "
+        f"R_gateway={R_GATEWAY}, {DURATION_S:.0f}s/cell × {REPS} reps.",
+        "q = frozen/live G_light. Tenant-split band is 0.40 ≤ q < 0.75 (A direct, B strong).",
+        "Isolation = checked vs starved among B required-strong. Pooled over reps.",
+        "",
+        "## Tenant-split routing (pooled)",
+        "",
+        "| policy | A:B | split_A | A direct | split_B | B need_strong | B checked |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for m in summary["pooled"]:
+        lines.append(
+            f"| {m['policy']} | {m['mix_a']:.0%}:{m['mix_b']:.0%} | "
+            f"{m['n_split_a']} | {m['split_a_direct']} | {m['n_split_b']} | "
+            f"{m['split_b_need_strong']} | {m['split_b_checked']} |"
+        )
+    lines += [
+        "",
+        "## Isolation (pooled B required-strong)",
         "",
         "| policy | A:B | G_safe | G_safe_B | need_B | checked_B | starved_B | n_B_unsafe | UAR_B |",
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
-    for m in summary["cells"]:
-        def fmt(x):
-            return "—" if x is None else f"{x:.3f}"
-
+    for m in summary["pooled"]:
+        uar = "—" if m["uar_b"] is None else f"{m['uar_b']:.3f}"
+        gsb = "—" if m["g_safe_b"] is None else f"{m['g_safe_b']:.3f}"
         lines.append(
             f"| {m['policy']} | {m['mix_a']:.0%}:{m['mix_b']:.0%} | "
-            f"{m['safe_slo_goodput']:.3f} | {fmt(m['g_safe_b'])} | "
+            f"{m['safe_slo_goodput']:.3f} | {gsb} | "
             f"{m['n_need_b']} | {m['n_checked_b']} | {m['n_starved_b']} | "
-            f"{m['n_b_unsafe']} | {fmt(m['uar_b'])} |"
+            f"{m['n_b_unsafe']} | {uar} |"
         )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"wrote {out}")

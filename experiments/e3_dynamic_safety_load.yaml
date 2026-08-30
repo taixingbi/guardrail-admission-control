@@ -4,6 +4,7 @@ mode: open_loop
 headline: true
 r_gateway_rps: 3.01
 rg_rps: 0.4
+bg_rps: 0.4
 duration_s: 480
 bin_s: 10
 tenant: A

@@ -7,5 +7,5 @@ concurrency_sweep: [1, 2, 4]
 duration_s: 20
 command: python scripts/run_e0c.py
 output: results/e0c/
-note: Keep R_gateway below LLM knee so E3/E4 isolate safety-capacity, not Maverick overload.
+note: Lock R_gateway below LLM knee, then set gateway safety budget Bg=0.4 rps. Bg is not ApplyGuardrail provider capacity.
 
