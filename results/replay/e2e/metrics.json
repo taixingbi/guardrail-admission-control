@@ -1,0 +1,51 @@
+{
+  "rg": 0.4,
+  "r_gateway": 3.01,
+  "duration_s": 40.0,
+  "frac": 1.0,
+  "c_star": 2,
+  "t_llm_ms": 250.0,
+  "note": "Scout only. Does not retune tau, Rg, or Tenant A SLO.",
+  "cells": [
+    {
+      "n": 120,
+      "safe_slo_goodput": 1.925,
+      "unsafe_admission_rate": 0.0,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": null,
+      "reject_rate": 0.14166666666666666,
+      "bypass_count": 0,
+      "n_admitted": 103,
+      "e2e_p50_ms": 554.9754580133595,
+      "e2e_p95_ms": 671.5410869161133,
+      "ttft_p50_ms": 264.9211883544922,
+      "ttft_p95_ms": 376.3922691345213,
+      "g_light_p50_ms": null,
+      "g_light_p95_ms": null,
+      "slo_800_goodput": 2.55,
+      "n_llm_error": 0,
+      "slo_ok_admitted": 0.7475728155339806,
+      "cell": "replay_q"
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 0.0,
+      "unsafe_admission_rate": 0.0,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": null,
+      "reject_rate": 0.175,
+      "bypass_count": 0,
+      "n_admitted": 99,
+      "e2e_p50_ms": 1088.396749983076,
+      "e2e_p95_ms": 11816.807345784033,
+      "ttft_p50_ms": 261.81697845458984,
+      "ttft_p95_ms": 1396.4066267013545,
+      "g_light_p50_ms": 361.0525625117589,
+      "g_light_p95_ms": 580.4474146250867,
+      "slo_800_goodput": 0.1,
+      "n_llm_error": 1,
+      "slo_ok_admitted": 0.0,
+      "cell": "live_path"
+    }
+  ]
+}

@@ -15,5 +15,3 @@ data/runs/
 data/external/*.parquet
 data/external/.cache/
 data/external/test/
-results/*
-!results/.gitkeep

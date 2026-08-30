@@ -1,0 +1,16 @@
+{
+  "n_seeds_requested": 500,
+  "n_frozen_prompts": 1888,
+  "n_complete_families": 472,
+  "by_variant": {
+    "S0": 472,
+    "S1": 472,
+    "S2": 472,
+    "S3": 472
+  },
+  "n_judged": 2000,
+  "judge_agree": 1972,
+  "judge_agree_rate": 0.986,
+  "judge_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "out": "data/runs/main"
+}

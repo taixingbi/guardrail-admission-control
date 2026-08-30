@@ -1,0 +1,198 @@
+{
+  "n": 64,
+  "model": "us.amazon.nova-micro-v1:0",
+  "auroc": 0.9375,
+  "auprc": 0.9716498717379355,
+  "p50_ms": 543.936499976553,
+  "p95_ms": 731.4680563402361,
+  "mean_ms": 557.3187727504774,
+  "parse_fail_review": 28,
+  "chosen_tau": {
+    "tau": 0.05,
+    "unsafe_recall": 0.875,
+    "fpr": 0.0,
+    "precision": 1.0,
+    "escalation_rate": 0.4375,
+    "youden": 0.875
+  },
+  "policy_points": {
+    "global_default_0.50": {
+      "tau": 0.5,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    "tenant_B_0.40": {
+      "tau": 0.4,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    "tenant_A_0.75": {
+      "tau": 0.75,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    }
+  },
+  "sweep": [
+    {
+      "tau": 0.05,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.1,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.15,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.2,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.25,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.3,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.35,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.4,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.45,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.5,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.55,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.6,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.65,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.7,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.75,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.8,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.85,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.9,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    },
+    {
+      "tau": 0.95,
+      "unsafe_recall": 0.875,
+      "fpr": 0.0,
+      "precision": 1.0,
+      "escalation_rate": 0.4375,
+      "youden": 0.875
+    }
+  ]
+}

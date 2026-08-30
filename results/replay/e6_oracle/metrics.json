@@ -1,0 +1,108 @@
+{
+  "rg": 0.4,
+  "r_gateway": 3.01,
+  "reuse_trace": "e3_proposed_240_360s_1.5Rg",
+  "n_replayed": 361,
+  "cells": [
+    {
+      "n": 361,
+      "safe_slo_goodput": 2.5166666666666666,
+      "unsafe_admission_rate": 0.0,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": null,
+      "reject_rate": 0.1634349030470914,
+      "bypass_count": 0,
+      "n_need": 59,
+      "n_checked": 27,
+      "n_starved": 32,
+      "n_deadline": 32,
+      "n_queue_anyway": 0,
+      "latency_p50_ms": 0.10120798833668232,
+      "latency_p95_ms": 204.49691597605124,
+      "reasons_need": {
+        "guardrail_block": 27,
+        "deadline": 32
+      },
+      "ablation": "full",
+      "use_tenant": true,
+      "use_deadline": true,
+      "use_early_reject": true,
+      "overflow_mode": "reject"
+    },
+    {
+      "n": 361,
+      "safe_slo_goodput": 2.5166666666666666,
+      "unsafe_admission_rate": 0.0,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": null,
+      "reject_rate": 0.1634349030470914,
+      "bypass_count": 0,
+      "n_need": 59,
+      "n_checked": 27,
+      "n_starved": 32,
+      "n_deadline": 32,
+      "n_queue_anyway": 0,
+      "latency_p50_ms": 0.10745803592726588,
+      "latency_p95_ms": 205.19412501016632,
+      "reasons_need": {
+        "guardrail_block": 27,
+        "deadline": 32
+      },
+      "ablation": "no_tenant",
+      "use_tenant": false,
+      "use_deadline": true,
+      "use_early_reject": true,
+      "overflow_mode": "reject"
+    },
+    {
+      "n": 361,
+      "safe_slo_goodput": 2.5166666666666666,
+      "unsafe_admission_rate": 0.0,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": null,
+      "reject_rate": 0.1634349030470914,
+      "bypass_count": 0,
+      "n_need": 59,
+      "n_checked": 27,
+      "n_starved": 32,
+      "n_deadline": 0,
+      "n_queue_anyway": 0,
+      "latency_p50_ms": 0.10245898738503456,
+      "latency_p95_ms": 202.08474999526516,
+      "reasons_need": {
+        "guardrail_block": 27,
+        "safety_floor": 32
+      },
+      "ablation": "no_deadline",
+      "use_tenant": true,
+      "use_deadline": false,
+      "use_early_reject": true,
+      "overflow_mode": "reject"
+    },
+    {
+      "n": 361,
+      "safe_slo_goodput": 2.5166666666666666,
+      "unsafe_admission_rate": 0.0,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": null,
+      "reject_rate": 0.1634349030470914,
+      "bypass_count": 0,
+      "n_need": 59,
+      "n_checked": 39,
+      "n_starved": 20,
+      "n_deadline": 0,
+      "n_queue_anyway": 0,
+      "latency_p50_ms": 0.09654200403019786,
+      "latency_p95_ms": 2001.3557500205934,
+      "reasons_need": {
+        "guardrail_block": 39,
+        "queue_timeout": 20
+      },
+      "ablation": "no_early_reject",
+      "use_tenant": true,
+      "use_deadline": true,
+      "use_early_reject": false,
+      "overflow_mode": "queue"
+    }
+  ]
+}
