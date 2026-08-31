@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any
 
 import httpx
@@ -62,11 +63,23 @@ def score_minilm_remote(
     *,
     region: str = "us-east-1",
     tau: float = 0.50,
+    retries: int = 4,
 ) -> tuple[float, str]:
     from gasc.risk import parse_minilm
 
-    payload = chat_completions(model=MINILM_ALIAS, text=text, region=region)
-    content = (((payload.get("choices") or [{}])[0].get("message") or {}).get("content")) or ""
-    if isinstance(content, dict):
-        content = json.dumps(content)
-    return parse_minilm(str(content), tau=tau)
+    delay = 0.5
+    last: Exception | None = None
+    for attempt in range(retries):
+        try:
+            payload = chat_completions(model=MINILM_ALIAS, text=text, region=region)
+            content = (((payload.get("choices") or [{}])[0].get("message") or {}).get("content")) or ""
+            if isinstance(content, dict):
+                content = json.dumps(content)
+            return parse_minilm(str(content), tau=tau)
+        except Exception as exc:  # noqa: BLE001 — Function URL / parse; retry then fail closed
+            last = exc
+            if attempt == retries - 1:
+                break
+            time.sleep(delay)
+            delay = min(delay * 2, 8.0)
+    raise RuntimeError(f"minilm-l12-h384 Function URL failed after {retries} tries: {last}") from last

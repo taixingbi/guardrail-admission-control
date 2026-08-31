@@ -47,3 +47,12 @@ def test_q_for_prefers_live_e0a(tmp_path):
     bands = split_q_bands([tagged, unsafe])
     assert tagged in bands["tenant_split"]
     assert unsafe in bands["both_strong"]
+
+
+def test_load_live_q_required(tmp_path):
+    missing = tmp_path / "none.jsonl"
+    try:
+        load_live_q(missing, required=True)
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError as exc:
+        assert "score_g_light" in str(exc)

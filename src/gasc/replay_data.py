@@ -23,10 +23,12 @@ def load_replay_prompts() -> list[FrozenPrompt]:
     return run_pipeline(cfg)
 
 
-def load_live_q(path: Path | None = None) -> dict[str, float]:
-    """Prefer minilm-l12-h384 scores; fall back to Nova Micro E0a."""
+def load_live_q(path: Path | None = None, *, required: bool = False) -> dict[str, float]:
+    """Frozen Function URL MiniLM q. Fail if required and missing (no oracle {0,1})."""
     scores = path or (LOCAL_SCORES if LOCAL_SCORES.exists() else E0A_SCORES)
     if not scores.exists():
+        if required:
+            raise RuntimeError("missing frozen minilm-l12-h384 q; run python scripts/score_g_light.py")
         return {}
     out: dict[str, float] = {}
     for line in scores.read_text().splitlines():
@@ -37,6 +39,8 @@ def load_live_q(path: Path | None = None) -> dict[str, float]:
         if vid is None or rec.get("q") is None:
             continue
         out[str(vid)] = float(rec["q"])
+    if required and not out:
+        raise RuntimeError("frozen q file is empty; run python scripts/score_g_light.py")
     return out
 
 

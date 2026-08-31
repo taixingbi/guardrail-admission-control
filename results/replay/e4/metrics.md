@@ -1,47 +1,32 @@
-# E4 safety-capacity exhaustion (freeze replay)
+# E4 safety-capacity exhaustion (frozen minilm-l12-h384 q, 5 reps)
 
-R_gateway=3.01 rps (constant), Rg=0.4 rps, 420s/policy.
+R_gateway=3.01 rps (constant), Rg=0.4 rps, 420s/policy × 5 reps.
 Suspicious/adversarial mix 5% → 50% → 5%. Offered strong demand ≈ 0.38 → 3.76 → 0.38 Rg.
-Tenant A only. q=e0a_live. Live ApplyGuardrail, no Maverick.
-Oracle cell archived in `results/replay/e4_oracle/`.
+Tenant A only. q=frozen_g_light. Live ApplyGuardrail, no Maverick.
+Paper overall cells are median [p25, p75]. Do not retune τ.
 
-## Per phase
+## Overall (median [IQR])
+
+| policy | G_safe | UAR | reject |
+| --- | --- | --- | --- |
+| always_strong | 0.286 [0.271, 0.293] | 0.128 [0.116, 0.142] | 0.875 [0.875, 0.875] |
+| risk_only | 2.231 [2.224, 2.257] | 0.300 [0.288, 0.316] | 0.185 [0.172, 0.185] |
+| load_aware | 2.267 [2.224, 2.283] | 0.314 [0.305, 0.316] | 0.173 [0.169, 0.188] |
+| proposed | 2.269 [2.267, 2.283] | 0.326 [0.316, 0.337] | 0.166 [0.164, 0.171] |
+
+## Per phase (rep 0)
 
 | policy | phase | sus | offered | G_safe | UAR | reject | checked | starved |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| always_strong | 0-120s | 5% | 0.38 Rg | 0.208 | 0.000 | 0.931 | 0.13 | 316 |
-| always_strong | 120-300s | 50% | 3.76 Rg | 0.083 | 0.000 | 0.972 | 0.12 | 474 |
-| always_strong | 300-420s | 5% | 0.38 Rg | 0.158 | 0.000 | 0.947 | 0.12 | 316 |
-| risk_only | 0-120s | 5% | 0.38 Rg | 2.933 | 0.000 | 0.028 | 0.73 | 3 |
-| risk_only | 120-300s | 50% | 3.76 Rg | 1.561 | 0.004 | 0.479 | 0.23 | 201 |
-| risk_only | 300-420s | 5% | 0.38 Rg | 2.908 | 0.000 | 0.033 | 0.92 | 1 |
-| load_aware | 0-120s | 5% | 0.38 Rg | 2.867 | 0.000 | 0.050 | 0.74 | 5 |
-| load_aware | 120-300s | 50% | 3.76 Rg | 1.561 | 0.004 | 0.479 | 0.23 | 200 |
-| load_aware | 300-420s | 5% | 0.38 Rg | 2.875 | 0.062 | 0.042 | 0.94 | 1 |
-| proposed | 0-120s | 5% | 0.38 Rg | 2.833 | 0.000 | 0.061 | 0.73 | 6 |
-| proposed | 120-300s | 50% | 3.76 Rg | 1.606 | 0.004 | 0.464 | 0.24 | 192 |
-| proposed | 300-420s | 5% | 0.38 Rg | 2.875 | 0.000 | 0.044 | 0.69 | 5 |
-
-## Overall
-
-| policy | G_safe | UAR | reject | checked | starved |
-| --- | --- | --- | --- | --- | --- |
-| always_strong | 0.140 | 0.000 | 0.953 | 0.12 | 1106 |
-| risk_only | 2.338 | 0.004 | 0.222 | 0.28 | 205 |
-| load_aware | 2.310 | 0.007 | 0.231 | 0.30 | 206 |
-| proposed | 2.319 | 0.003 | 0.229 | 0.30 | 203 |
-
-## G_safe time series (10 s bins)
-
-- **always_strong:** `0.20 0.20 0.30 0.10 0.10 0.20 0.20 0.10 0.20 0.10 0.40 0.40 0.00 0.40 0.00 0.00 0.00 0.00 0.00 0.10 0.10 0.20 0.10 0.00 0.00 0.00 0.10 0.30 0.20 0.00 0.10 0.10 0.20 0.20 0.20 0.30 0.20 0.10 0.10 0.20 0.10 0.10`
-- **risk_only:** `3.00 3.00 2.70 3.00 2.90 3.00 2.90 2.70 3.00 3.00 3.10 2.90 1.20 2.00 1.60 1.50 1.10 1.80 1.50 1.60 1.20 1.50 1.60 1.80 1.50 1.50 2.10 1.60 1.50 1.50 2.90 2.80 2.90 2.90 3.00 3.00 2.90 2.90 3.00 2.90 2.90 2.80`
-- **load_aware:** `2.90 2.70 2.90 2.90 3.00 2.80 2.90 2.90 2.80 3.00 2.90 2.70 1.50 1.20 1.40 2.10 1.40 1.70 1.30 1.00 1.30 1.50 1.50 1.70 1.90 1.80 1.30 1.80 1.90 1.80 2.90 2.90 2.80 2.80 2.90 2.90 2.80 3.00 2.70 2.90 3.00 2.90`
-- **proposed:** `2.80 2.50 2.80 3.00 2.90 2.90 2.70 2.90 2.90 2.80 3.00 2.80 1.30 1.30 1.80 1.70 1.60 1.80 1.60 1.90 1.80 1.70 1.90 1.40 1.90 1.50 1.70 1.60 1.20 1.20 3.10 3.00 2.80 2.70 2.80 2.90 2.90 3.00 2.70 2.80 3.00 2.80`
-
-## Read
-
-Live E0a q. Offered strong ≈ 0.38 → **3.76** → 0.38 Rg at constant gateway RPS.
-
-- Proposed **2.83 → 1.61 → 2.88**. UAR 0 in both 5% phases. Attack UAR 0.004 is ApplyGuardrail `NONE`, not a bypass.
-- Adaptive policies floor around 1.56–1.61 under 50% suspicious (benign-direct still serves) and recover to ~2.88. Always-Strong stays 0.08–0.21.
-- Matches the oracle archive to two decimals on Proposed. τ and `Rg` unchanged.
+| always_strong | 0-120s | 5% | 0.38 Rg | 0.367 | 0.111 | 0.873 | 0.00 | 362 |
+| always_strong | 120-300s | 50% | 3.76 Rg | 0.156 | 0.143 | 0.876 | 0.00 | 541 |
+| always_strong | 300-420s | 5% | 0.38 Rg | 0.350 | 0.167 | 0.875 | 0.00 | 361 |
+| risk_only | 0-120s | 5% | 0.38 Rg | 2.908 | 0.400 | 0.025 | 0.00 | 20 |
+| risk_only | 120-300s | 50% | 3.76 Rg | 1.511 | 0.263 | 0.372 | 0.00 | 259 |
+| risk_only | 300-420s | 5% | 0.38 Rg | 2.875 | 0.750 | 0.019 | 0.00 | 21 |
+| load_aware | 0-120s | 5% | 0.38 Rg | 2.842 | 0.667 | 0.025 | 0.00 | 29 |
+| load_aware | 120-300s | 50% | 3.76 Rg | 1.489 | 0.262 | 0.379 | 0.00 | 265 |
+| load_aware | 300-420s | 5% | 0.38 Rg | 2.858 | 0.812 | 0.014 | 0.00 | 23 |
+| proposed | 0-120s | 5% | 0.38 Rg | 2.833 | 0.773 | 0.014 | 0.00 | 23 |
+| proposed | 120-300s | 50% | 3.76 Rg | 1.583 | 0.298 | 0.335 | 0.00 | 241 |
+| proposed | 300-420s | 5% | 0.38 Rg | 2.867 | 0.750 | 0.014 | 0.00 | 18 |

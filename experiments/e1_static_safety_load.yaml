@@ -7,7 +7,8 @@ r_gateway_rps: 3.01
 rg_rps: 0.4
 bg_rps: 0.4
 duration_s: 40
+reps: 5
 command: python scripts/run_e1.py
-output: results/e1/
-note: Scout. Total gateway RPS fixed. Mix S2/S3 to hit oracle strong demand. Full 6-point sweep later.
+output: results/replay/e1/
+note: Formal. Frozen Function URL q. 5 reps. Median [IQR] in metrics.md.
 

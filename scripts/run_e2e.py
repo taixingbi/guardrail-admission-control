@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-"""E2e scout: Proposed + Maverick. Does not retune τ, Rg, or SLO.
+"""Live end-to-end sanity: Function URL MiniLM + scheduler + ApplyGuardrail + Maverick.
 
-Two 40s cells at E1's 1.0 Rg mix, Tenant A, fail-closed:
-- replay_q: frozen minilm-l12-h384 q (E1-comparable) + ApplyGuardrail + Maverick
-- live_path: live minilm-l12-h384 + ApplyGuardrail + Maverick
-
-Maverick inflight is capped at E0c C*=2. t_llm_ms = E0c TTFT P50.
-E1–E6 stay Maverick-off; this only measures the missing LLM hop.
+Not a substitute for E1–E6 (those replay frozen q). One Proposed cell at 1.0 Rg
+proves the architecture and reports MiniLM / e2e P95 overhead.
 """
 
 from __future__ import annotations
@@ -231,7 +227,7 @@ async def _run() -> dict:
     gver = os.environ.get("GASC_GUARDRAIL_VERSION", "1")
     frozen = load_replay_prompts()
     safe, unsafe = split_safe_unsafe(frozen)
-    live_q = load_live_q()
+    live_q = load_live_q(required=True)
     print(f"E2e n={len(frozen)} live_q={len(live_q)}", flush=True)
     client = bedrock_runtime(os.environ.get("AWS_REGION", "us-east-1"))
     out = replay_dir("e2e")

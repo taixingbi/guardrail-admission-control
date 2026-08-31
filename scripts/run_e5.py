@@ -19,13 +19,14 @@ from dotenv import load_dotenv
 from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
 from gasc.limiter import StrongLimiter
 from gasc.replay_data import load_live_q, load_replay_prompts, q_for, replay_dir, split_safe_unsafe
-from gasc.report import aggregate
+from gasc.report import aggregate, fmt_stat, pool_by
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
 RG = 0.4
 R_GATEWAY = 3.01
 DURATION_S = 60.0
+REPS = 5
 FRACS = (1.5, 2.0)
 MODES = (
     ("proposed_fail_closed", True, True),
@@ -127,7 +128,7 @@ def _extra(recs: list[RunRecord]) -> dict:
     }
 
 
-async def _cell(*, client, guardrail_id, version, mode, fail_closed, use_deadline, frac, prompts_safe, prompts_unsafe, live_q) -> dict:
+async def _cell(*, client, guardrail_id, version, mode, fail_closed, use_deadline, frac, prompts_safe, prompts_unsafe, live_q, rep: int = 0) -> dict:
     limiter = StrongLimiter(
         inflight_limit=2,
         queue_max=16,
@@ -137,7 +138,7 @@ async def _cell(*, client, guardrail_id, version, mode, fail_closed, use_deadlin
         burst=1,
     )
     api_lock = asyncio.Lock()
-    rng = random.Random(50 + int(frac * 10) + (0 if fail_closed else 7))
+    rng = random.Random(50 + int(frac * 10) + (0 if fail_closed else 7) + rep * 1000)
     interval = 1.0 / R_GATEWAY
     p_unsafe = (frac * RG) / R_GATEWAY
     n_slots = int(DURATION_S / interval)
@@ -171,6 +172,7 @@ async def _cell(*, client, guardrail_id, version, mode, fail_closed, use_deadlin
             "fail_closed": fail_closed,
             "strong_demand_frac_of_rg": frac,
             "n": len(recs),
+            "rep": rep,
         }
     )
     return {"metrics": metrics, "records": [json.loads(r.model_dump_json()) for r in recs]}
@@ -183,39 +185,51 @@ async def _run() -> dict:
     gver = os.environ.get("GASC_GUARDRAIL_VERSION", "1")
     frozen = load_replay_prompts()
     safe, unsafe = split_safe_unsafe(frozen)
-    live_q = load_live_q()
-    print(f"E5 replay n={len(frozen)} safe={len(safe)} unsafe={len(unsafe)} live_q={len(live_q)}", flush=True)
+    live_q = load_live_q(required=True)
+    print(
+        f"E5 replay n={len(frozen)} safe={len(safe)} unsafe={len(unsafe)} "
+        f"frozen_q={len(live_q)} {REPS} reps",
+        flush=True,
+    )
     client = bedrock_runtime(os.environ.get("AWS_REGION", "us-east-1"))
     out = replay_dir("e5")
     out.mkdir(parents=True, exist_ok=True)
     cells = []
-    for mode, fail_closed, use_deadline in MODES:
-        for frac in FRACS:
-            print(f"E5 {mode} {frac:.1f} Rg …", flush=True)
-            cell = await _cell(
-                client=client,
-                guardrail_id=gid,
-                version=gver,
-                mode=mode,
-                fail_closed=fail_closed,
-                use_deadline=use_deadline,
-                frac=frac,
-                prompts_safe=safe,
-                prompts_unsafe=unsafe,
-                live_q=live_q,
-            )
-            print(json.dumps(cell["metrics"], indent=2), flush=True)
-            cells.append(cell["metrics"])
-            (out / f"{mode}_{frac:.1f}.jsonl").write_text(
-                "\n".join(json.dumps(r) for r in cell["records"]) + "\n"
-            )
+    for rep in range(REPS):
+        for mode, fail_closed, use_deadline in MODES:
+            for frac in FRACS:
+                print(f"E5 r{rep} {mode} {frac:.1f} Rg …", flush=True)
+                cell = await _cell(
+                    client=client,
+                    guardrail_id=gid,
+                    version=gver,
+                    mode=mode,
+                    fail_closed=fail_closed,
+                    use_deadline=use_deadline,
+                    frac=frac,
+                    prompts_safe=safe,
+                    prompts_unsafe=unsafe,
+                    live_q=live_q,
+                    rep=rep,
+                )
+                print(json.dumps(cell["metrics"], indent=2), flush=True)
+                cells.append(cell["metrics"])
+                (out / f"r{rep}_{mode}_{frac:.1f}.jsonl").write_text(
+                    "\n".join(json.dumps(r) for r in cell["records"]) + "\n"
+                )
     return {
         "rg": RG,
         "r_gateway": R_GATEWAY,
         "duration_s": DURATION_S,
-        "q_source": "e0a_live" if live_q else "oracle",
+        "reps": REPS,
+        "q_source": "frozen_g_light",
         "n_live_q": len(live_q),
         "cells": cells,
+        "pooled": pool_by(
+            cells,
+            ("mode", "strong_demand_frac_of_rg"),
+            ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate", "bypass_rate_need"),
+        ),
     }
 
 
@@ -224,21 +238,20 @@ def main() -> int:
     out = replay_dir("e5")
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
-        "# E5 fail-open vs fail-closed (freeze replay)",
+        "# E5 fail-open vs fail-closed (frozen minilm-l12-h384 q, 5 reps)",
         "",
-        f"Proposed only. R_gateway={R_GATEWAY}, Rg={RG}, {DURATION_S:.0f}s/cell. q={summary.get('q_source', 'oracle')}.",
+        f"Proposed only. R_gateway={R_GATEWAY}, Rg={RG}, {DURATION_S:.0f}s/cell × {summary['reps']} reps. q={summary.get('q_source')}.",
         "Fail-open disables deadline so exhaustion can bypass. Fail-closed keeps frozen B4.",
-        "Oracle cell archived in `results/replay/e5_oracle/`.",
+        "Paper cells are median [p25, p75]. MiniLM is a screener, not the authority. Do not retune τ.",
         "",
-        "| mode | demand | G_safe | UAR | reject | bypass | bypass/need | compliant |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| mode | demand | G_safe | UAR | reject | bypass/need |",
+        "| --- | --- | --- | --- | --- | --- |",
     ]
-    for m in summary["cells"]:
+    for m in summary["pooled"]:
         lines.append(
             f"| {m['mode']} | {m['strong_demand_frac_of_rg']:.1f} Rg | "
-            f"{m['safe_slo_goodput']:.3f} | {m['unsafe_admission_rate']:.3f} | "
-            f"{m['reject_rate']:.3f} | {m['n_bypass']} | {m['bypass_rate_need']:.2f} | "
-            f"{1.0 - (m['bypass_count'] / max(m['n'], 1)):.3f} |"
+            f"{fmt_stat(m['safe_slo_goodput'])} | {fmt_stat(m['unsafe_admission_rate'])} | "
+            f"{fmt_stat(m['reject_rate'])} | {fmt_stat(m['bypass_rate_need'], digits=2)} |"
         )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"wrote {out}", flush=True)

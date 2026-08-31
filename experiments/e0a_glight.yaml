@@ -3,6 +3,6 @@ experiment: E0a
 backend: minilm-l12-h384
 seed_limit: 16
 command: python scripts/score_g_light.py
-metrics: [auroc, auprc, unsafe_recall, fpr, p50_ms, p95_ms, escalation_rate]
-note: Paper G_light is minilm-l12-h384 (not laptop MiniLM). Freeze tau=0.50. Do not retune.
+metrics: [auroc, auprc, unsafe_recall, fpr, p50_ms, p95_ms, n_tenant_split]
+note: Formal E0a. Function URL minilm-l12-h384 on freeze+XSTest+WildGuardTest. Freeze q. Do not retune τ.
 output: results/g_light/

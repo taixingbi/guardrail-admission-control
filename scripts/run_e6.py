@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
 from gasc.limiter import StrongLimiter
 from gasc.replay_data import load_live_q, load_replay_prompts, q_for, replay_dir, split_safe_unsafe
-from gasc.report import aggregate
+from gasc.report import aggregate, fmt_stat, pool_by
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
@@ -28,6 +28,7 @@ R_GATEWAY = 3.01
 E3_DURATION_S = 480.0
 OVERLOAD_LO = 240.0
 OVERLOAD_HI = 360.0
+REPS = 5
 E3_PHASES = ((120.0, 0.5), (240.0, 0.9), (360.0, 1.5), (480.0, 0.6))
 E3_PROPOSED_SEED = 30 + 3 * 17
 VARIANTS = (
@@ -48,8 +49,8 @@ def _frac_at(t_s: float) -> float:
     return E3_PHASES[-1][1]
 
 
-def _e3_proposed_overload(prompts_safe, prompts_unsafe):
-    rng = random.Random(E3_PROPOSED_SEED)
+def _e3_proposed_overload(prompts_safe, prompts_unsafe, *, rep: int = 0):
+    rng = random.Random(E3_PROPOSED_SEED + rep * 1000)
     interval = 1.0 / R_GATEWAY
     n_slots = int(E3_DURATION_S / interval)
     planned = []
@@ -164,7 +165,7 @@ def _window(recs: list[RunRecord], duration_s: float) -> dict:
     return m
 
 
-async def _cell(*, client, guardrail_id, version, variant, use_tenant, use_deadline, use_early_reject, overflow, planned, live_q) -> dict:
+async def _cell(*, client, guardrail_id, version, variant, use_tenant, use_deadline, use_early_reject, overflow, planned, live_q, rep: int = 0) -> dict:
     limiter = StrongLimiter(
         inflight_limit=2,
         queue_max=16,
@@ -174,7 +175,7 @@ async def _cell(*, client, guardrail_id, version, variant, use_tenant, use_deadl
         burst=1,
     )
     api_lock = asyncio.Lock()
-    rng = random.Random(60 + {"full": 1, "no_tenant": 2, "no_deadline": 3, "no_early_reject": 4}[variant])
+    rng = random.Random(60 + {"full": 1, "no_tenant": 2, "no_deadline": 3, "no_early_reject": 4}[variant] + rep * 1000)
     t0_abs = planned[0][0]
     t_start = time.perf_counter()
 
@@ -209,6 +210,7 @@ async def _cell(*, client, guardrail_id, version, variant, use_tenant, use_deadl
             "use_early_reject": use_early_reject,
             "overflow_mode": overflow,
             "n": len(recs),
+            "rep": rep,
         }
     )
     return {"metrics": metrics, "records": [json.loads(r.model_dump_json()) for r in recs]}
@@ -221,38 +223,49 @@ async def _run() -> dict:
     gver = os.environ.get("GASC_GUARDRAIL_VERSION", "1")
     frozen = load_replay_prompts()
     safe, unsafe = split_safe_unsafe(frozen)
-    live_q = load_live_q()
-    print(f"E6 replay n={len(frozen)} safe={len(safe)} unsafe={len(unsafe)} live_q={len(live_q)}", flush=True)
-    planned = _e3_proposed_overload(safe, unsafe)
+    live_q = load_live_q(required=True)
+    print(
+        f"E6 replay n={len(frozen)} safe={len(safe)} unsafe={len(unsafe)} "
+        f"frozen_q={len(live_q)} {REPS} reps",
+        flush=True,
+    )
     client = bedrock_runtime(os.environ.get("AWS_REGION", "us-east-1"))
     out = replay_dir("e6")
     out.mkdir(parents=True, exist_ok=True)
     cells = []
-    for variant, use_tenant, use_deadline, use_early_reject, overflow in VARIANTS:
-        print(f"E6 {variant} ({len(planned)} req, 120s) …", flush=True)
-        cell = await _cell(
-            client=client,
-            guardrail_id=gid,
-            version=gver,
-            variant=variant,
-            use_tenant=use_tenant,
-            use_deadline=use_deadline,
-            use_early_reject=use_early_reject,
-            overflow=overflow,
-            planned=planned,
-            live_q=live_q,
-        )
-        print(json.dumps(cell["metrics"], indent=2), flush=True)
-        cells.append(cell["metrics"])
-        (out / f"{variant}.jsonl").write_text("\n".join(json.dumps(r) for r in cell["records"]) + "\n")
+    for rep in range(REPS):
+        planned = _e3_proposed_overload(safe, unsafe, rep=rep)
+        for variant, use_tenant, use_deadline, use_early_reject, overflow in VARIANTS:
+            print(f"E6 r{rep} {variant} ({len(planned)} req, 120s) …", flush=True)
+            cell = await _cell(
+                client=client,
+                guardrail_id=gid,
+                version=gver,
+                variant=variant,
+                use_tenant=use_tenant,
+                use_deadline=use_deadline,
+                use_early_reject=use_early_reject,
+                overflow=overflow,
+                planned=planned,
+                live_q=live_q,
+                rep=rep,
+            )
+            print(json.dumps(cell["metrics"], indent=2), flush=True)
+            cells.append(cell["metrics"])
+            (out / f"r{rep}_{variant}.jsonl").write_text("\n".join(json.dumps(r) for r in cell["records"]) + "\n")
     return {
         "rg": RG,
         "r_gateway": R_GATEWAY,
+        "reps": REPS,
         "reuse_trace": "e3_proposed_240_360s_1.5Rg",
-        "n_replayed": len(planned),
-        "q_source": "e0a_live" if live_q else "oracle",
+        "q_source": "frozen_g_light",
         "n_live_q": len(live_q),
         "cells": cells,
+        "pooled": pool_by(
+            cells,
+            ("ablation",),
+            ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate"),
+        ),
     }
 
 
@@ -261,20 +274,18 @@ def main() -> int:
     out = replay_dir("e6")
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
-        "# E6 ablations (freeze replay, E3 overload 1.5 Rg)",
+        "# E6 ablations (frozen minilm-l12-h384 q, 5 reps, E3 overload 1.5 Rg)",
         "",
-        f"Same arrivals and prompts as E3 proposed. Fail-closed. Tenant A only. q={summary.get('q_source', 'oracle')}.",
-        "Oracle cell archived in `results/replay/e6_oracle/`.",
+        f"Same arrival process as E3 proposed overload. Fail-closed. Tenant A only. q={summary.get('q_source')}.",
+        "Paper cells are median [p25, p75]. Full vs −NoEarlyReject is the systems headline. Do not retune τ.",
         "",
-        "| ablation | G_safe | UAR | reject | checked | starved | P50 ms | P95 ms | deadline |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| ablation | G_safe | UAR | reject |",
+        "| --- | --- | --- | --- |",
     ]
-    for m in summary["cells"]:
-        p50 = "—" if m["latency_p50_ms"] is None else f"{m['latency_p50_ms']:.0f}"
-        p95 = "—" if m["latency_p95_ms"] is None else f"{m['latency_p95_ms']:.0f}"
+    for m in summary["pooled"]:
         lines.append(
-            f"| {m['ablation']} | {m['safe_slo_goodput']:.3f} | {m['unsafe_admission_rate']:.3f} | "
-            f"{m['reject_rate']:.3f} | {m['n_checked']} | {m['n_starved']} | {p50} | {p95} | {m['n_deadline']} |"
+            f"| {m['ablation']} | {fmt_stat(m['safe_slo_goodput'])} | "
+            f"{fmt_stat(m['unsafe_admission_rate'])} | {fmt_stat(m['reject_rate'])} |"
         )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"wrote {out}", flush=True)

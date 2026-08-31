@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
 from gasc.limiter import StrongLimiter
 from gasc.replay_data import load_live_q, load_replay_prompts, q_for, replay_dir, split_safe_unsafe
-from gasc.report import aggregate
+from gasc.report import aggregate, fmt_stat, pool_by
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
@@ -27,6 +27,7 @@ RG = 0.4
 R_GATEWAY = 3.01
 DURATION_S = 480.0
 BIN_S = 10.0
+REPS = 5
 PHASES = (
     (120.0, 0.5),
     (240.0, 0.9),
@@ -150,7 +151,7 @@ def _window_metrics(recs: list[RunRecord], duration_s: float) -> dict:
     return m
 
 
-async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_unsafe, live_q) -> dict:
+async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_unsafe, live_q, rep: int = 0) -> dict:
     limiter = StrongLimiter(
         inflight_limit=2,
         queue_max=16,
@@ -160,7 +161,7 @@ async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_
         burst=1,
     )
     api_lock = asyncio.Lock()
-    rng = random.Random(30 + POLICIES.index(policy) * 17)
+    rng = random.Random(30 + POLICIES.index(policy) * 17 + rep * 1000)
     interval = 1.0 / R_GATEWAY
     n_slots = int(DURATION_S / interval)
     planned = []
@@ -191,6 +192,7 @@ async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_
     recs = list(await asyncio.gather(*[_scheduled(i, t_s, p) for i, (t_s, p) in enumerate(planned)]))
     overall = _window_metrics(recs, DURATION_S)
     overall["policy"] = policy
+    overall["rep"] = rep
     phases = []
     prev = 0.0
     for until, frac in PHASES:
@@ -222,53 +224,80 @@ async def _run() -> dict:
     gver = os.environ.get("GASC_GUARDRAIL_VERSION", "1")
     frozen = load_replay_prompts()
     safe, unsafe = split_safe_unsafe(frozen)
-    live_q = load_live_q()
-    print(f"E3 replay n={len(frozen)} safe={len(safe)} unsafe={len(unsafe)} live_q={len(live_q)}", flush=True)
+    live_q = load_live_q(required=True)
+    print(
+        f"E3 replay n={len(frozen)} safe={len(safe)} unsafe={len(unsafe)} "
+        f"frozen_q={len(live_q)} {REPS} reps",
+        flush=True,
+    )
     client = bedrock_runtime(os.environ.get("AWS_REGION", "us-east-1"))
     out = replay_dir("e3")
     out.mkdir(parents=True, exist_ok=True)
     cells = []
-    for policy in POLICIES:
-        print(f"E3 {policy} 480s …", flush=True)
-        cell = await _cell(
-            client=client,
-            guardrail_id=gid,
-            version=gver,
-            policy=policy,
-            prompts_safe=safe,
-            prompts_unsafe=unsafe,
-            live_q=live_q,
-        )
-        print(json.dumps({"policy": policy, "overall": cell["metrics"], "phases": cell["phases"]}, indent=2), flush=True)
-        (out / f"{policy}.jsonl").write_text("\n".join(json.dumps(r) for r in cell["records"]) + "\n")
-        (out / f"{policy}_series.json").write_text(json.dumps(cell["series"], indent=2))
-        cells.append({"overall": cell["metrics"], "phases": cell["phases"], "series": cell["series"]})
+    for rep in range(REPS):
+        for policy in POLICIES:
+            print(f"E3 r{rep} {policy} 480s …", flush=True)
+            cell = await _cell(
+                client=client,
+                guardrail_id=gid,
+                version=gver,
+                policy=policy,
+                prompts_safe=safe,
+                prompts_unsafe=unsafe,
+                live_q=live_q,
+                rep=rep,
+            )
+            print(json.dumps({"policy": policy, "rep": rep, "overall": cell["metrics"], "phases": cell["phases"]}, indent=2), flush=True)
+            (out / f"r{rep}_{policy}.jsonl").write_text("\n".join(json.dumps(r) for r in cell["records"]) + "\n")
+            (out / f"r{rep}_{policy}_series.json").write_text(json.dumps(cell["series"], indent=2))
+            cells.append({"overall": cell["metrics"], "phases": cell["phases"], "series": cell["series"]})
+    overall_rows = [c["overall"] for c in cells]
     return {
         "rg": RG,
         "r_gateway": R_GATEWAY,
         "duration_s": DURATION_S,
         "bin_s": BIN_S,
+        "reps": REPS,
         "phases": [{"until_s": u, "strong_frac_of_rg": f} for u, f in PHASES],
-        "q_source": "e0a_live" if live_q else "oracle",
+        "q_source": "frozen_g_light",
         "n_live_q": len(live_q),
         "cells": cells,
+        "pooled": pool_by(
+            overall_rows,
+            ("policy",),
+            ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate"),
+        ),
     }
 
 
 def _md(summary: dict) -> str:
     lines = [
-        "# E3 dynamic safety load (freeze replay)",
+        "# E3 dynamic safety load (frozen minilm-l12-h384 q, 5 reps)",
         "",
-        f"R_gateway={R_GATEWAY} rps, Rg={RG} rps, {DURATION_S:.0f}s/policy. Mix 0.5→0.9→1.5→0.6 Rg.",
-        f"Tenant A only. q={summary.get('q_source', 'oracle')}. Live ApplyGuardrail, no Maverick.",
-        "Oracle cell archived in `results/replay/e3_oracle/`.",
+        f"R_gateway={R_GATEWAY} rps, Rg={RG} rps, {DURATION_S:.0f}s/policy × {summary['reps']} reps. Mix 0.5→0.9→1.5→0.6 Rg.",
+        f"Tenant A only. q={summary.get('q_source')}. Live ApplyGuardrail, no Maverick.",
+        "Paper overall cells are median [p25, p75]. Do not retune τ.",
         "",
-        "## Per phase",
+        "## Overall (median [IQR])",
+        "",
+        "| policy | G_safe | UAR | reject |",
+        "| --- | --- | --- | --- |",
+    ]
+    for m in summary["pooled"]:
+        lines.append(
+            f"| {m['policy']} | {fmt_stat(m['safe_slo_goodput'])} | "
+            f"{fmt_stat(m['unsafe_admission_rate'])} | {fmt_stat(m['reject_rate'])} |"
+        )
+    lines += [
+        "",
+        "## Per phase (rep 0 shown in jsonl; pooled overall is the paper cell)",
         "",
         "| policy | phase | demand | G_safe | UAR | reject | checked | starved |",
         "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for cell in summary["cells"]:
+        if cell["overall"].get("rep", 0) != 0:
+            continue
         for m in cell["phases"]:
             chk = m["checked_rate"]
             chk_s = "—" if chk is None else f"{chk:.2f}"
@@ -277,26 +306,6 @@ def _md(summary: dict) -> str:
                 f"{m['safe_slo_goodput']:.3f} | {m['unsafe_admission_rate']:.3f} | "
                 f"{m['reject_rate']:.3f} | {chk_s} | {m['n_starved']} |"
             )
-    lines += [
-        "",
-        "## Overall",
-        "",
-        "| policy | G_safe | UAR | reject | checked | starved |",
-        "| --- | --- | --- | --- | --- | --- |",
-    ]
-    for cell in summary["cells"]:
-        m = cell["overall"]
-        chk = m["checked_rate"]
-        chk_s = "—" if chk is None else f"{chk:.2f}"
-        lines.append(
-            f"| {m['policy']} | {m['safe_slo_goodput']:.3f} | {m['unsafe_admission_rate']:.3f} | "
-            f"{m['reject_rate']:.3f} | {chk_s} | {m['n_starved']} |"
-        )
-    lines += ["", "## G_safe time series (10 s bins)", ""]
-    for cell in summary["cells"]:
-        policy = cell["overall"]["policy"]
-        ys = " ".join(f"{row['safe_slo_goodput']:.2f}" for row in cell["series"])
-        lines.append(f"- **{policy}:** `{ys}`")
     return "\n".join(lines) + "\n"
 
 

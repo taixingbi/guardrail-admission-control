@@ -33,7 +33,9 @@ Llama 4 Maverick 17B
 
 Inexpensive MiniLM risk estimation gates an expensive managed safety service. \(q(x)\) is a classifier probability (continuous), not a bimodal LLM JSON score.
 
-**Paper G_light is `minilm-l12-h384`** (bedrock-tenants Function URL alias; Lambda in-process classifier). It is **not** laptop MiniLM and **not** a Bedrock GPU / Converse FM. `models/g_light` / `GASC_GLIGHT_BACKEND=local` is a fallback only — do not cite it as G_light. Nova Micro is appendix-only (`GASC_GLIGHT_BACKEND=nova`).
+**Paper G_light is `minilm-l12-h384`** (bedrock-tenants Function URL alias; Lambda in-process classifier). It is **not** laptop MiniLM and **not** a Bedrock GPU / Converse FM. MiniLM is a **screener / risk estimator**. ApplyGuardrail is the **authoritative** strong check. Residual UAR (including MiniLM under-scoring some GT-unsafe, especially XSTest) is a classifier limit, not a scheduler bug. Do not retune \(\tau\) on WildGuardTest / XSTest.
+
+`models/g_light` / `GASC_GLIGHT_BACKEND=local` is a fallback only — do not cite it as G_light. Nova Micro is appendix-only (`GASC_GLIGHT_BACKEND=nova`).
 
 The scarce resource this paper schedules is **gateway safety budget \(B_g\)** (ApplyGuardrail admissions), not LLM tokens.
 
@@ -123,20 +125,28 @@ Rejects are policy-compliant and safe when they avoid admitting GT-unsafe traffi
 - **Critical-tenant SLO attainment:** Tenant B among requests that should be served
 - **Guardrail capacity efficiency:** policy-required ApplyGuardrail occupancy / all ApplyGuardrail occupancy
 
-## Campaign
+## Campaign (final clean pass)
 
-E0 characterize and freeze. E1–E6 keep the same frame. Formal cells use frozen / live \(q(x)\). Headlines: **E2** (tenant policy), **E5** (fail-closed), **E6** (early reject).
+One pass, then **STOP**. No E7/E8. Current laptop-MiniLM cells are not final paper results.
 
-- **E0a** Paper G_light = `minilm-l12-h384`. Re-score freeze + XSTest + WildGuardTest via Function URL (`python scripts/score_g_light.py`). Keep \(\tau=0.50\). Do **not** cite laptop MiniLM AUROC 0.985 / P50–P95 6.2/7.4 ms as the paper cell (appendix only). After re-score, compare the \(0.40\le q<0.75\) band; re-run E1–E6 only if that band moves.
-- **E0b** Raw ApplyGuardrail characterization (do not rerun).
-- **E0c** Define gateway safety budget \(B_g = 0.4\) rps; Maverick knee sets \(R_{gateway}\).
-- **E1** Static safety-budget sweep. Keep until E0a `minilm-l12-h384` \(q\) is frozen.
-- **E2** Multi-tenant contention (`minilm-l12-h384` \(q\), 5 reps). Split-band: Proposed A 100% direct, B 100% strong. Isolation numbers below are from laptop MiniLM \(q\) — replace after E0a re-score. Do not retune \(\tau\) or \(B_g\).
-- **E3** Dynamic safety demand. Update: live \(q(x)\), 5 reps. Hypothesis: Proposed **preserves the safety floor with bounded goodput cost** (not “highest throughput”).
-- **E4** Tenant-targeted safety-resource exhaustion. Update: constant total RPS, risky mix explodes strong-guard demand; optional A-flood / B-normal isolation.
-- **E5** Fail-open vs fail-closed. Keep + 5 reps.
-- **E6** Deadline / early-reject ablation. Keep + 5 reps. Full vs −NoEarlyReject is the systems headline.
+```
+Function URL MiniLM E0a  →  freeze q  →  E1–E6 (5 reps, replay)  →  one live e2e  →  write paper
+```
+
+```bash
+python3 scripts/run_campaign.py          # e0a then e1–e6 then e2e
+python3 scripts/run_campaign.py e0a
+python3 scripts/run_campaign.py e1-e6
+python3 scripts/run_campaign.py e2e
+```
+
+- **E0a (must redo)** Score freeze (~1888) + XSTest + WildGuardTest via `minilm-l12-h384` Function URL. Report AUROC, AUPRC, recall@0.50, FPR@0.50, endpoint P50/P95, q histogram, count in \(0.40\le q<0.75\). Freeze that \(q(x)\). Keep \(\tau=0.50\). Laptop AUROC 0.985 / 6.2–7.4 ms is appendix only.
+- **E0b / E0c** Do not rerun. \(B_g=0.4\), \(R_{gateway}=3.01\) stay locked.
+- **E1–E6** Replay the **same** frozen Function URL \(q\). Headline cells **5 reps**. Paper tables: **median [p25, p75]** (mean stored in json). No Function URL on the E1–E6 hot path (decouples scheduler from MiniLM jitter).
+- **E2 / E5 / E6** Core contributions (tenant isolation, fail-closed, early-reject). If the Function URL \(q\) band \(0.40\)–\(0.75\) is still large enough, do not expand scope.
+- **Live e2e (once)** `scripts/run_e2e.py`: Client → Function URL MiniLM → scheduler → ApplyGuardrail if needed → Maverick. Architecture + P95 overhead only. Not a replacement for E1–E6.
+- After this pass: do not change model, \(\tau\), or datasets. Write the paper.
 
 ## Out of scope
 
-Paper 7 ASR/PSR, HotpotQA, RL/WFQ, Terraform, ECS/ALB as the gateway, retuning after freeze. G_light’s MiniLM is the Function URL alias `minilm-l12-h384`, not a laptop-only runtime.
+Paper 7 ASR/PSR, HotpotQA, RL/WFQ, Terraform, ECS/ALB as the gateway, retuning \(\tau\) after freeze, extra experiments E7/E8.

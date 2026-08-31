@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""E1 scout: static safety-load sweep at fixed R_gateway.
+"""E1: static safety-load sweep at fixed R_gateway.
 
-Oracle mix of S2/S3 hits 0.5 / 1.0 / 1.5 Rg. Live E0a q when present.
-Live ApplyGuardrail; Maverick skipped so the cell isolates safety capacity.
+Frozen Function URL q. 5 reps. Live ApplyGuardrail; Maverick skipped.
 """
 
 from __future__ import annotations
@@ -19,13 +18,14 @@ from dotenv import load_dotenv
 from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
 from gasc.limiter import StrongLimiter
 from gasc.replay_data import load_live_q, load_replay_prompts, q_for, replay_dir, split_safe_unsafe
-from gasc.report import aggregate
+from gasc.report import aggregate, fmt_stat, pool_by
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
 RG = 0.4
 R_GATEWAY = 3.01
 DURATION_S = 40.0
+REPS = 5
 FRACS = (0.50, 1.00, 1.50)
 POLICIES = (
     ("always_strong", "queue"),
@@ -136,6 +136,7 @@ async def _cell(
     prompts_safe: list,
     prompts_unsafe: list,
     live_q,
+    rep: int = 0,
 ) -> dict:
     limiter = StrongLimiter(
         inflight_limit=2,
@@ -145,7 +146,11 @@ async def _cell(
         rg_rps=RG,
         burst=1,
     )
-    rng = random.Random({"always_strong": 1, "risk_only": 2, "load_aware": 3, "proposed": 4}[policy] * 100 + int(frac * 100))
+    rng = random.Random(
+        {"always_strong": 1, "risk_only": 2, "load_aware": 3, "proposed": 4}[policy] * 100
+        + int(frac * 100)
+        + rep * 1000
+    )
     interval = 1.0 / R_GATEWAY
     p_unsafe = (frac * RG) / R_GATEWAY
     n_slots = int(DURATION_S / interval)
@@ -179,6 +184,7 @@ async def _cell(
             "oracle_strong_rps": frac * RG,
             "offered_rps": R_GATEWAY,
             "n": len(recs),
+            "rep": rep,
         }
     )
     return {"metrics": metrics, "records": [json.loads(r.model_dump_json()) for r in recs]}
@@ -192,36 +198,48 @@ async def _run() -> dict:
     region = os.environ.get("AWS_REGION", "us-east-1")
     frozen = load_replay_prompts()
     safe, unsafe = split_safe_unsafe(frozen)
-    live_q = load_live_q()
-    print(f"E1 replay n={len(frozen)} safe={len(safe)} unsafe={len(unsafe)} live_q={len(live_q)}", flush=True)
+    live_q = load_live_q(required=True)
+    print(
+        f"E1 replay n={len(frozen)} safe={len(safe)} unsafe={len(unsafe)} "
+        f"frozen_q={len(live_q)} {REPS} reps",
+        flush=True,
+    )
     client = bedrock_runtime(region)
     cells = []
     out = replay_dir("e1")
-    for policy, _mode in POLICIES:
-        for frac in FRACS:
-            print(f"E1 {policy} frac={frac} …", flush=True)
-            cell = await _cell(
-                client=client,
-                guardrail_id=gid,
-                version=gver,
-                policy=policy,
-                frac=frac,
-                prompts_safe=safe,
-                prompts_unsafe=unsafe,
-                live_q=live_q,
-            )
-            print(json.dumps(cell["metrics"], indent=2))
-            cells.append(cell["metrics"])
-            (out / f"{policy}_{frac:.2f}.jsonl").write_text(
-                "\n".join(json.dumps(r) for r in cell["records"]) + "\n"
-            )
+    for rep in range(REPS):
+        for policy, _mode in POLICIES:
+            for frac in FRACS:
+                print(f"E1 r{rep} {policy} frac={frac} …", flush=True)
+                cell = await _cell(
+                    client=client,
+                    guardrail_id=gid,
+                    version=gver,
+                    policy=policy,
+                    frac=frac,
+                    prompts_safe=safe,
+                    prompts_unsafe=unsafe,
+                    live_q=live_q,
+                    rep=rep,
+                )
+                print(json.dumps(cell["metrics"], indent=2))
+                cells.append(cell["metrics"])
+                (out / f"r{rep}_{policy}_{frac:.2f}.jsonl").write_text(
+                    "\n".join(json.dumps(r) for r in cell["records"]) + "\n"
+                )
     return {
         "rg": RG,
         "r_gateway": R_GATEWAY,
         "duration_s": DURATION_S,
-        "q_source": "e0a_live" if live_q else "oracle",
+        "reps": REPS,
+        "q_source": "frozen_g_light",
         "n_live_q": len(live_q),
         "cells": cells,
+        "pooled": pool_by(
+            cells,
+            ("policy", "strong_demand_frac_of_rg"),
+            ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate", "guardrail_capacity_efficiency"),
+        ),
     }
 
 
@@ -230,21 +248,20 @@ def main() -> int:
     out = replay_dir("e1")
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
-        "# E1 static safety-load (freeze replay)",
+        "# E1 static safety-load (frozen minilm-l12-h384 q, 5 reps)",
         "",
-        f"R_gateway={R_GATEWAY} rps, Rg={RG} rps, {DURATION_S:.0f}s/cell. q={summary.get('q_source', 'oracle')}. Live ApplyGuardrail, no Maverick.",
-        "Oracle cell archived in `results/replay/e1_oracle/`.",
+        f"R_gateway={R_GATEWAY} rps, Rg={RG} rps, {DURATION_S:.0f}s/cell × {summary['reps']} reps. "
+        f"q={summary.get('q_source')}. Live ApplyGuardrail, no Maverick.",
+        "Paper cells are median [p25, p75]. Do not retune τ.",
         "",
         "| policy | demand | G_safe | UAR | reject | efficiency |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
-    for m in summary["cells"]:
-        eff = m["guardrail_capacity_efficiency"]
-        eff_s = f"{eff:.2f}" if eff is not None else "—"
+    for m in summary["pooled"]:
         lines.append(
             f"| {m['policy']} | {m['strong_demand_frac_of_rg']:.2f} Rg | "
-            f"{m['safe_slo_goodput']:.3f} | {m['unsafe_admission_rate']:.3f} | "
-            f"{m['reject_rate']:.3f} | {eff_s} |"
+            f"{fmt_stat(m['safe_slo_goodput'])} | {fmt_stat(m['unsafe_admission_rate'])} | "
+            f"{fmt_stat(m['reject_rate'])} | {fmt_stat(m['guardrail_capacity_efficiency'], digits=2)} |"
         )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"wrote {out}")

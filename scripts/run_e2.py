@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
 from gasc.limiter import StrongLimiter
 from gasc.replay_data import load_scored_prompts, q_for, replay_dir, split_q_bands, split_safe_unsafe
-from gasc.report import aggregate
+from gasc.report import aggregate, fmt_stat, stat_pack
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
@@ -233,24 +233,19 @@ def _pool_reps(cells: list[dict]) -> list[dict]:
     out = []
     for (policy, pa, pb), rows in groups.items():
         n = len(rows)
-
-        def mean(key, default=0.0):
-            vals = [r[key] for r in rows if r.get(key) is not None]
-            return (sum(vals) / len(vals)) if vals else default
-
         out.append(
             {
                 "policy": policy,
                 "mix_a": pa,
                 "mix_b": pb,
                 "reps": n,
-                "safe_slo_goodput": mean("safe_slo_goodput"),
-                "g_safe_b": mean("g_safe_b"),
+                "safe_slo_goodput": stat_pack([r["safe_slo_goodput"] for r in rows]),
+                "g_safe_b": stat_pack([r["g_safe_b"] for r in rows]),
                 "n_need_b": sum(r["n_need_b"] for r in rows),
                 "n_checked_b": sum(r["n_checked_b"] for r in rows),
                 "n_starved_b": sum(r["n_starved_b"] for r in rows),
                 "n_b_unsafe": sum(r["n_b_unsafe"] for r in rows),
-                "uar_b": mean("uar_b"),
+                "uar_b": stat_pack([r["uar_b"] for r in rows]),
                 "n_split_a": sum(r["n_split_a"] for r in rows),
                 "n_split_b": sum(r["n_split_b"] for r in rows),
                 "split_a_direct": sum(r["split_a_direct"] for r in rows),
@@ -320,12 +315,13 @@ def main() -> int:
     out = replay_dir("e2")
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
-        "# E2 multi-tenant contention (formal, live q, 5 reps)",
+        "# E2 multi-tenant contention (frozen minilm-l12-h384 q, 5 reps)",
         "",
         f"Gateway safety budget Bg={BG} rps (not ApplyGuardrail provider capacity). "
         f"R_gateway={R_GATEWAY}, {DURATION_S:.0f}s/cell × {REPS} reps.",
-        "q = frozen/live G_light. Tenant-split band is 0.40 ≤ q < 0.75 (A direct, B strong).",
-        "Isolation = checked vs starved among B required-strong. Pooled over reps.",
+        "q = frozen Function URL MiniLM. Tenant-split band is 0.40 ≤ q < 0.75 (A direct, B strong).",
+        "Isolation = checked vs starved among B required-strong. Paper cells are median [p25, p75].",
+        "MiniLM is a screener; ApplyGuardrail is the authority. Do not retune τ on XSTest/WildGuardTest.",
         "",
         "## Tenant-split routing (pooled)",
         "",
@@ -346,13 +342,11 @@ def main() -> int:
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for m in summary["pooled"]:
-        uar = "—" if m["uar_b"] is None else f"{m['uar_b']:.3f}"
-        gsb = "—" if m["g_safe_b"] is None else f"{m['g_safe_b']:.3f}"
         lines.append(
             f"| {m['policy']} | {m['mix_a']:.0%}:{m['mix_b']:.0%} | "
-            f"{m['safe_slo_goodput']:.3f} | {gsb} | "
+            f"{fmt_stat(m['safe_slo_goodput'])} | {fmt_stat(m['g_safe_b'])} | "
             f"{m['n_need_b']} | {m['n_checked_b']} | {m['n_starved_b']} | "
-            f"{m['n_b_unsafe']} | {uar} |"
+            f"{m['n_b_unsafe']} | {fmt_stat(m['uar_b'])} |"
         )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"wrote {out}")

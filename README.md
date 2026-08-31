@@ -10,7 +10,7 @@ Locked design: [docs/experiment-design.md](docs/experiment-design.md). Knobs: [F
 
 | Role | Where | Purpose |
 | --- | --- | --- |
-| G_light | MiniLM-L12-H384 (`minilm-l12-h384`) | cheap risk estimation \(q(x)\) |
+| G_light | MiniLM-L12-H384 (`minilm-l12-h384`) | screener / risk estimate \(q(x)\) |
 | G_strong | ApplyGuardrail | authoritative safety |
 | LLM | Llama 4 Maverick 17B Instruct | user response |
 
@@ -22,8 +22,11 @@ Paper Tenant A/B are gateway policies, not AWS accounts. v1 runs in management `
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,g_light]"
 cp .env.example .env
-# Paper G_light: Function URL minilm-l12-h384 (not laptop weights)
-python scripts/score_g_light.py
+
+# Final campaign: Function URL E0a → freeze q → E1–E6 (5 reps) → one live e2e → STOP
+python scripts/run_campaign.py e0a
+python scripts/run_campaign.py e1-e6
+python scripts/run_campaign.py e2e
 ```
 
 The paper needs:

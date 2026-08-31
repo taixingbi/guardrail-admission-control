@@ -15,5 +15,6 @@ phases:
   - {until_s: 360, strong_demand_frac_of_rg: 1.5}
   - {until_s: 480, strong_demand_frac_of_rg: 0.6}
 command: python scripts/run_e3.py
-output: results/e3/
-note: Gateway RPS constant. Only the oracle-unsafe mix changes.
+output: results/replay/e3/
+reps: 5
+note: Frozen Function URL q. 5 reps. Gateway RPS constant. Only the oracle-unsafe mix changes.

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from gasc.config import AppConfig
+from gasc.eval_binary import percentile
 from gasc.schemas import RunRecord
 
 
@@ -30,6 +31,43 @@ def aggregate(records: list[RunRecord], *, duration_s: float) -> dict:
         "reject_rate": sum(1 for r in records if r.route == "reject") / max(len(records), 1),
         "bypass_count": sum(1 for r in records if r.decision.bypass),
     }
+
+
+def stat_pack(vals: list[float]) -> dict:
+    """Paper table cell: median [p25, p75] plus mean. Empty → nulls."""
+    xs = [float(v) for v in vals if v is not None]
+    if not xs:
+        return {"n": 0, "mean": None, "median": None, "p25": None, "p75": None}
+    return {
+        "n": len(xs),
+        "mean": sum(xs) / len(xs),
+        "median": percentile(xs, 50),
+        "p25": percentile(xs, 25),
+        "p75": percentile(xs, 75),
+    }
+
+
+def fmt_stat(pack: dict | None, *, digits: int = 3) -> str:
+    if not pack or pack.get("median") is None:
+        return "—"
+    d = digits
+    return f"{pack['median']:.{d}f} [{pack['p25']:.{d}f}, {pack['p75']:.{d}f}]"
+
+
+def pool_by(rows: list[dict], group_keys: tuple[str, ...], metric_keys: tuple[str, ...]) -> list[dict]:
+    from collections import defaultdict
+
+    groups: dict[tuple, list[dict]] = defaultdict(list)
+    for row in rows:
+        groups[tuple(row[k] for k in group_keys)].append(row)
+    out = []
+    for key, chunk in groups.items():
+        item = {k: v for k, v in zip(group_keys, key)}
+        item["reps"] = len(chunk)
+        for mk in metric_keys:
+            item[mk] = stat_pack([r.get(mk) for r in chunk])
+        out.append(item)
+    return out
 
 
 def write_metrics(cfg: AppConfig, n_frozen: int | None = None) -> Path:
