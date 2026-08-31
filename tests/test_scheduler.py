@@ -85,3 +85,21 @@ def test_always_strong_ignores_q():
     d = decide(SchedulerInputs(q=0.01, tenant=A, policy="always_strong"))
     assert d.need_strong
     assert d.route == "strong"
+    assert d.policy_required
+    assert d.risk_required is False
+
+
+def test_always_strong_risk_required_tracks_global_tau():
+    low = decide(SchedulerInputs(q=0.01, tenant=A, policy="always_strong", global_tau=0.5))
+    high = decide(SchedulerInputs(q=0.9, tenant=A, policy="always_strong", global_tau=0.5))
+    assert low.need_strong and not low.risk_required
+    assert high.need_strong and high.risk_required
+
+
+def test_proposed_risk_required_uses_tenant_tau():
+    d = decide(SchedulerInputs(q=0.6, tenant=A, policy="proposed", global_tau=0.5))
+    assert d.route == "direct"
+    assert d.risk_required is False
+    d = decide(SchedulerInputs(q=0.6, tenant=B, policy="proposed", global_tau=0.5))
+    assert d.route == "strong"
+    assert d.risk_required is True

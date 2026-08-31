@@ -47,5 +47,6 @@
       "slo_ok_admitted": 0.0,
       "cell": "live_path"
     }
-  ]
+  ],
+  "bg": 0.4
 }

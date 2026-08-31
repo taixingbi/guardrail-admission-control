@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E0b: ApplyGuardrail concurrency sweep → Rg_raw, then lock experimental Rg."""
+"""E0b: ApplyGuardrail concurrency sweep → B_g^{raw}, then lock experimental Bg."""
 
 from __future__ import annotations
 
@@ -136,18 +136,21 @@ def main() -> int:
     ]
     best = max(p95_stable or healthy, key=lambda r: r["goodput_rps"]) if (p95_stable or healthy) else None
     rg_raw = best["goodput_rps"] if best else None
-    # Experimental Rg is a gateway org budget, not AWS quota.
-    # Paper 9 Maverick knee ~1.84 rps; keep Rg << 0.7 * knee.
-    experimental_rg = 0.4
+    # Experimental Bg is a gateway org budget, not AWS quota.
+    # Paper 9 Maverick knee ~1.84 rps; keep Bg << 0.7 * knee.
+    experimental_bg = 0.4
     summary = {
         "guardrail_id": gid,
         "guardrail_version": gver,
         "duration_s": DURATION_S,
         "sweep": levels,
+        "bg_raw_rps": rg_raw,
         "rg_raw_rps": rg_raw,
+        "bg_raw_concurrency": best["concurrency"] if best else None,
         "rg_raw_concurrency": best["concurrency"] if best else None,
-        "experimental_rg_rps": experimental_rg,
-        "note": "experimental_rg is a gateway token-bucket, not Rg_raw.",
+        "experimental_bg_rps": experimental_bg,
+        "experimental_rg_rps": experimental_bg,
+        "note": "experimental_bg is a gateway token-bucket, not B_g^{raw}.",
     }
     out = root / "results" / "e0b"
     out.mkdir(parents=True, exist_ok=True)
@@ -172,13 +175,13 @@ def main() -> int:
     lines.extend(
         [
             "",
-            f"**Rg_raw** = {rg_raw:.2f} rps at C={best['concurrency']}" if best else "**Rg_raw** unavailable",
-            f"**Experimental Rg** = {experimental_rg} rps (gateway safety quota).",
+            f"**B_g^{{raw}}** = {rg_raw:.2f} rps at C={best['concurrency']}" if best else "**B_g^{raw}** unavailable",
+            f"**Experimental Bg** = {experimental_bg} rps (gateway safety budget, not provider capacity).",
             "",
         ]
     )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
-    print(json.dumps({"rg_raw_rps": rg_raw, "experimental_rg_rps": experimental_rg}, indent=2))
+    print(json.dumps({"bg_raw_rps": rg_raw, "experimental_bg_rps": experimental_bg}, indent=2))
     print(f"wrote {out}")
     return 0
 

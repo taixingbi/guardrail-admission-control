@@ -3,7 +3,7 @@
 **Topic:** Multi-tenant safety-capacity scheduling for a shared Bedrock ApplyGuardrail budget  
 **Setting:** opaque Bedrock backends; gateway-visible signals only (risk score, strong-guard queue, inflight, latency)
 
-Core sentence: **ApplyGuardrail is a finite shared safety resource.** The gateway must meet tenant safety policy and latency SLOs under dynamic safety load, maximize Safe SLO-Goodput, and never bypass a required strong check.
+Core sentence: **ApplyGuardrail is a finite shared safety resource.** The gateway must meet tenant safety policy and latency SLOs under dynamic safety load, maximize Safe SLO-Goodput, and never bypass a required strong check. Required is defined by the gateway risk signal \(q(x)\) and tenant \(\tau\), not by ground-truth labels.
 
 ## Roles (do not mix)
 
@@ -119,33 +119,35 @@ G_{safe} = \frac{N(\text{policy compliant} \land \text{safe} \land \text{served}
 
 Rejects are policy-compliant and safe when they avoid admitting GT-unsafe traffic, but they are **not** goodput.
 
-- **policy compliant:** required strong was checked or the request was rejected; bypass is non-compliant
+- **policy compliant:** required strong was checked or the request was rejected; bypass is non-compliant. This is compliance **given** \(q(x)\), not GT safety.
 - **safe:** GT-unsafe must not reach Maverick; reject is safe but not goodput
-- **Unsafe Admission Rate:** GT-unsafe admitted to Maverick / GT-unsafe
+- **Unsafe Admission Rate:** GT-unsafe admitted to Maverick / GT-unsafe. MiniLM false negatives (q below \(\tau\)) inflate UAR without a scheduler bypass.
 - **Critical-tenant SLO attainment:** Tenant B among requests that should be served
-- **Guardrail capacity efficiency:** policy-required ApplyGuardrail occupancy / all ApplyGuardrail occupancy
+- **Guardrail capacity efficiency:** risk-required ApplyGuardrail occupancy / all ApplyGuardrail occupancy. Risk-required means \(q \ge \tau\) (tenant \(\tau\) for Proposed; else global \(\tau=0.50\)). Always-Strong occupancy with \(q < \tau\) is waste, so its efficiency is not identically 1.
 
-## Campaign (final clean pass)
+## Campaign status (locked)
 
-One pass, then **STOP**. No E7/E8. Current laptop-MiniLM cells are not final paper results.
+No E7/E8. Architecture is frozen. Paper G_light is Function URL `minilm-l12-h384`.
+
+**Claim (do not overstate):** Proposed guarantees **policy compliance conditional on** \(q(x)\): it never bypasses a request the policy marks as requiring strong inspection. Residual UAR is MiniLM false negatives (especially XSTest), not scheduler fail-open. Do not write “Proposed guarantees safety.”
+
+| Cell | Status |
+| --- | --- |
+| E0a | **Done.** Function URL MiniLM on freeze + XSTest + WildGuardTest. Freeze AUROC 0.986, P50/P95 524/619 ms, \(0.40\le q<0.75\) = 220. Same \(q\) as laptop MiniLM; latency is the endpoint. |
+| E0b / E0c | Do not rerun. \(B_g=0.4\), \(R_{gateway}=3.01\) locked. |
+| E1–E6 | **Done.** Same frozen Function URL \(q\), 5 reps, median [p25, p75]. No Function URL on the replay hot path. |
+| E2 | Paper-level tenant result (split-band 220; Proposed A 100% direct / B 100% strong; B coverage 65.5%/40.3% vs load-aware 29.9%/27.1% at 90:10 / 70:30). |
+| E4 | Phenomenon only (exhaustion at constant RPS). Do not claim Proposed dominates. |
+| E5 / E6 | Mechanism holds on MiniLM \(q\). Cite these MiniLM numbers, **not** the old Nova `e0a_live` / `*_oracle` UAR=0 tables. |
+| Live e2e | `replay_q` (P50 ~584 ms) is paper-comparable. `live_path` (P50 6.3s / P95 21s) puts Function URL MiniLM on every request and is **not** the 600 ms SLO architecture number. |
+| Appendix | `e*_oracle`, `e0a_local`, Nova Micro (`GASC_GLIGHT_BACKEND=nova`). Do not mix with paper tables. |
 
 ```
-Function URL MiniLM E0a  →  freeze q  →  E1–E6 (5 reps, replay)  →  one live e2e  →  write paper
+python3 scripts/run_campaign.py          # already run; do not retune
+python3 scripts/refresh_replay_metrics.py  # rebuild md/json from jsonl (no AWS)
 ```
 
-```bash
-python3 scripts/run_campaign.py          # e0a then e1–e6 then e2e
-python3 scripts/run_campaign.py e0a
-python3 scripts/run_campaign.py e1-e6
-python3 scripts/run_campaign.py e2e
-```
-
-- **E0a (must redo)** Score freeze (~1888) + XSTest + WildGuardTest via `minilm-l12-h384` Function URL. Report AUROC, AUPRC, recall@0.50, FPR@0.50, endpoint P50/P95, q histogram, count in \(0.40\le q<0.75\). Freeze that \(q(x)\). Keep \(\tau=0.50\). Laptop AUROC 0.985 / 6.2–7.4 ms is appendix only.
-- **E0b / E0c** Do not rerun. \(B_g=0.4\), \(R_{gateway}=3.01\) stay locked.
-- **E1–E6** Replay the **same** frozen Function URL \(q\). Headline cells **5 reps**. Paper tables: **median [p25, p75]** (mean stored in json). No Function URL on the E1–E6 hot path (decouples scheduler from MiniLM jitter).
-- **E2 / E5 / E6** Core contributions (tenant isolation, fail-closed, early-reject). If the Function URL \(q\) band \(0.40\)–\(0.75\) is still large enough, do not expand scope.
-- **Live e2e (once)** `scripts/run_e2e.py`: Client → Function URL MiniLM → scheduler → ApplyGuardrail if needed → Maverick. Architecture + P95 overhead only. Not a replacement for E1–E6.
-- After this pass: do not change model, \(\tau\), or datasets. Write the paper.
+After this pass: do not change model, \(\tau\), or datasets. **Write the paper.**
 
 ## Out of scope
 

@@ -103,6 +103,9 @@ class ScheduleDecision(BaseModel):
     policy_required: bool
     q: float
     bypass: bool = False
+    # q ≥ τ_risk (tenant τ for Proposed+tenant; else global τ). Independent of
+    # always_strong, which sends everything to ApplyGuardrail. None on old records.
+    risk_required: bool | None = None
 
 
 class RunRecord(BaseModel):

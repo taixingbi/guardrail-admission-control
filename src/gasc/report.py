@@ -7,6 +7,28 @@ from gasc.config import AppConfig
 from gasc.eval_binary import percentile
 from gasc.schemas import RunRecord
 
+_TENANT_TAU = {"A": 0.75, "B": 0.40}
+_GLOBAL_TAU = 0.5
+
+
+def risk_required_of(r: RunRecord) -> bool:
+    """q ≥ τ_risk. Stored on new decisions; reconstructed for older jsonl."""
+    stored = r.decision.risk_required
+    if stored is not None:
+        return bool(stored)
+    tau = _TENANT_TAU.get(r.tenant_id, _GLOBAL_TAU) if r.policy == "proposed" else _GLOBAL_TAU
+    return r.q >= tau
+
+
+def applied_strong(r: RunRecord) -> bool:
+    """Request occupied ApplyGuardrail (or an equivalent strong slot)."""
+    action = r.apply_guardrail_action or (r.metadata or {}).get("apply_guardrail_action")
+    if action not in (None, "ERROR"):
+        return True
+    if r.decision.reason == "guardrail_block":
+        return True
+    return r.route == "strong"
+
 
 def aggregate(records: list[RunRecord], *, duration_s: float) -> dict:
     if duration_s <= 0:
@@ -20,8 +42,8 @@ def aggregate(records: list[RunRecord], *, duration_s: float) -> dict:
     unsafe_admitted = sum(1 for r in unsafe if r.admitted_to_llm)
     tenant_b = [r for r in records if r.tenant_id == "B" and r.route != "reject"]
     b_slo = sum(1 for r in tenant_b if r.slo_ok)
-    strong = [r for r in records if r.route == "strong"]
-    required_strong = [r for r in strong if r.decision.policy_required]
+    strong = [r for r in records if applied_strong(r)]
+    required_strong = [r for r in strong if risk_required_of(r)]
     return {
         "n": len(records),
         "safe_slo_goodput": n_safe_slo / duration_s,

@@ -1,10 +1,9 @@
 {
-  "rg": 0.4,
+  "bg": 0.4,
   "r_gateway": 3.01,
   "reps": 5,
-  "reuse_trace": "e3_proposed_240_360s_1.5Rg",
+  "reuse_trace": "e3_proposed_240_360s_1.5Bg",
   "q_source": "frozen_g_light",
-  "n_live_q": 4037,
   "cells": [
     {
       "n": 361,
@@ -15,8 +14,8 @@
       "reject_rate": 0.08310249307479224,
       "bypass_count": 0,
       "n_need": 56,
-      "n_checked": 0,
-      "n_starved": 56,
+      "n_checked": 26,
+      "n_starved": 30,
       "n_deadline": 30,
       "n_queue_anyway": 0,
       "latency_p50_ms": 0.13737502740696073,
@@ -30,33 +29,8 @@
       "use_deadline": true,
       "use_early_reject": true,
       "overflow_mode": "reject",
-      "rep": 0
-    },
-    {
-      "n": 361,
-      "safe_slo_goodput": 2.4916666666666667,
-      "unsafe_admission_rate": 0.4576271186440678,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.09695290858725762,
-      "bypass_count": 0,
-      "n_need": 61,
-      "n_checked": 0,
-      "n_starved": 61,
-      "n_deadline": 35,
-      "n_queue_anyway": 0,
-      "latency_p50_ms": 0.13379199663177133,
-      "latency_p95_ms": 25.003708025906235,
-      "reasons_need": {
-        "strong_available": 26,
-        "deadline": 35
-      },
-      "ablation": "no_tenant",
-      "use_tenant": false,
-      "use_deadline": true,
-      "use_early_reject": true,
-      "overflow_mode": "reject",
-      "rep": 0
+      "rep": 0,
+      "n_strong_slot": 26
     },
     {
       "n": 361,
@@ -67,8 +41,8 @@
       "reject_rate": 0.08310249307479224,
       "bypass_count": 0,
       "n_need": 56,
-      "n_checked": 0,
-      "n_starved": 56,
+      "n_checked": 26,
+      "n_starved": 30,
       "n_deadline": 0,
       "n_queue_anyway": 0,
       "latency_p50_ms": 0.13529101852327585,
@@ -82,7 +56,8 @@
       "use_deadline": false,
       "use_early_reject": true,
       "overflow_mode": "reject",
-      "rep": 0
+      "rep": 0,
+      "n_strong_slot": 26
     },
     {
       "n": 361,
@@ -93,8 +68,8 @@
       "reject_rate": 0.05263157894736842,
       "bypass_count": 0,
       "n_need": 56,
-      "n_checked": 0,
-      "n_starved": 56,
+      "n_checked": 37,
+      "n_starved": 19,
       "n_deadline": 0,
       "n_queue_anyway": 26,
       "latency_p50_ms": 0.1266250037588179,
@@ -109,7 +84,35 @@
       "use_deadline": true,
       "use_early_reject": false,
       "overflow_mode": "queue",
-      "rep": 0
+      "rep": 0,
+      "n_strong_slot": 37
+    },
+    {
+      "n": 361,
+      "safe_slo_goodput": 2.4916666666666667,
+      "unsafe_admission_rate": 0.4576271186440678,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 0.9230769230769231,
+      "reject_rate": 0.09695290858725762,
+      "bypass_count": 0,
+      "n_need": 61,
+      "n_checked": 26,
+      "n_starved": 35,
+      "n_deadline": 35,
+      "n_queue_anyway": 0,
+      "latency_p50_ms": 0.13379199663177133,
+      "latency_p95_ms": 25.003708025906235,
+      "reasons_need": {
+        "strong_available": 26,
+        "deadline": 35
+      },
+      "ablation": "no_tenant",
+      "use_tenant": false,
+      "use_deadline": true,
+      "use_early_reject": true,
+      "overflow_mode": "reject",
+      "rep": 0,
+      "n_strong_slot": 26
     },
     {
       "n": 361,
@@ -120,8 +123,8 @@
       "reject_rate": 0.07202216066481995,
       "bypass_count": 0,
       "n_need": 56,
-      "n_checked": 0,
-      "n_starved": 56,
+      "n_checked": 30,
+      "n_starved": 26,
       "n_deadline": 26,
       "n_queue_anyway": 0,
       "latency_p50_ms": 0.13354199472814798,
@@ -135,33 +138,8 @@
       "use_deadline": true,
       "use_early_reject": true,
       "overflow_mode": "reject",
-      "rep": 1
-    },
-    {
-      "n": 361,
-      "safe_slo_goodput": 2.4583333333333335,
-      "unsafe_admission_rate": 0.5087719298245614,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.10249307479224377,
-      "bypass_count": 0,
-      "n_need": 69,
-      "n_checked": 0,
-      "n_starved": 69,
-      "n_deadline": 37,
-      "n_queue_anyway": 0,
-      "latency_p50_ms": 0.1194999786093831,
-      "latency_p95_ms": 26.212124968878925,
-      "reasons_need": {
-        "strong_available": 32,
-        "deadline": 37
-      },
-      "ablation": "no_tenant",
-      "use_tenant": false,
-      "use_deadline": true,
-      "use_early_reject": true,
-      "overflow_mode": "reject",
-      "rep": 1
+      "rep": 1,
+      "n_strong_slot": 30
     },
     {
       "n": 361,
@@ -172,8 +150,8 @@
       "reject_rate": 0.07202216066481995,
       "bypass_count": 0,
       "n_need": 56,
-      "n_checked": 0,
-      "n_starved": 56,
+      "n_checked": 30,
+      "n_starved": 26,
       "n_deadline": 0,
       "n_queue_anyway": 0,
       "latency_p50_ms": 0.10733300587162375,
@@ -187,7 +165,8 @@
       "use_deadline": false,
       "use_early_reject": true,
       "overflow_mode": "reject",
-      "rep": 1
+      "rep": 1,
+      "n_strong_slot": 30
     },
     {
       "n": 361,
@@ -198,8 +177,8 @@
       "reject_rate": 0.04709141274238227,
       "bypass_count": 0,
       "n_need": 56,
-      "n_checked": 0,
-      "n_starved": 56,
+      "n_checked": 39,
+      "n_starved": 17,
       "n_deadline": 0,
       "n_queue_anyway": 22,
       "latency_p50_ms": 0.10366702917963266,
@@ -214,7 +193,35 @@
       "use_deadline": true,
       "use_early_reject": false,
       "overflow_mode": "queue",
-      "rep": 1
+      "rep": 1,
+      "n_strong_slot": 39
+    },
+    {
+      "n": 361,
+      "safe_slo_goodput": 2.4583333333333335,
+      "unsafe_admission_rate": 0.5087719298245614,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 0.875,
+      "reject_rate": 0.10249307479224377,
+      "bypass_count": 0,
+      "n_need": 69,
+      "n_checked": 32,
+      "n_starved": 37,
+      "n_deadline": 37,
+      "n_queue_anyway": 0,
+      "latency_p50_ms": 0.1194999786093831,
+      "latency_p95_ms": 26.212124968878925,
+      "reasons_need": {
+        "strong_available": 32,
+        "deadline": 37
+      },
+      "ablation": "no_tenant",
+      "use_tenant": false,
+      "use_deadline": true,
+      "use_early_reject": true,
+      "overflow_mode": "reject",
+      "rep": 1,
+      "n_strong_slot": 32
     },
     {
       "n": 361,
@@ -225,8 +232,8 @@
       "reject_rate": 0.0997229916897507,
       "bypass_count": 0,
       "n_need": 63,
-      "n_checked": 0,
-      "n_starved": 63,
+      "n_checked": 27,
+      "n_starved": 36,
       "n_deadline": 36,
       "n_queue_anyway": 0,
       "latency_p50_ms": 0.10858301538974047,
@@ -240,33 +247,8 @@
       "use_deadline": true,
       "use_early_reject": true,
       "overflow_mode": "reject",
-      "rep": 2
-    },
-    {
-      "n": 361,
-      "safe_slo_goodput": 2.441666666666667,
-      "unsafe_admission_rate": 0.42857142857142855,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.11357340720221606,
-      "bypass_count": 0,
-      "n_need": 68,
-      "n_checked": 0,
-      "n_starved": 68,
-      "n_deadline": 41,
-      "n_queue_anyway": 0,
-      "latency_p50_ms": 0.10745803592726588,
-      "latency_p95_ms": 26.322332967538387,
-      "reasons_need": {
-        "strong_available": 27,
-        "deadline": 41
-      },
-      "ablation": "no_tenant",
-      "use_tenant": false,
-      "use_deadline": true,
-      "use_early_reject": true,
-      "overflow_mode": "reject",
-      "rep": 2
+      "rep": 2,
+      "n_strong_slot": 27
     },
     {
       "n": 361,
@@ -277,8 +259,8 @@
       "reject_rate": 0.0997229916897507,
       "bypass_count": 0,
       "n_need": 63,
-      "n_checked": 0,
-      "n_starved": 63,
+      "n_checked": 27,
+      "n_starved": 36,
       "n_deadline": 0,
       "n_queue_anyway": 0,
       "latency_p50_ms": 0.10750000365078449,
@@ -292,7 +274,8 @@
       "use_deadline": false,
       "use_early_reject": true,
       "overflow_mode": "reject",
-      "rep": 2
+      "rep": 2,
+      "n_strong_slot": 27
     },
     {
       "n": 361,
@@ -303,8 +286,8 @@
       "reject_rate": 0.06925207756232687,
       "bypass_count": 0,
       "n_need": 63,
-      "n_checked": 0,
-      "n_starved": 63,
+      "n_checked": 38,
+      "n_starved": 25,
       "n_deadline": 0,
       "n_queue_anyway": 25,
       "latency_p50_ms": 0.1301250304095447,
@@ -319,7 +302,35 @@
       "use_deadline": true,
       "use_early_reject": false,
       "overflow_mode": "queue",
-      "rep": 2
+      "rep": 2,
+      "n_strong_slot": 38
+    },
+    {
+      "n": 361,
+      "safe_slo_goodput": 2.441666666666667,
+      "unsafe_admission_rate": 0.42857142857142855,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 0.8888888888888888,
+      "reject_rate": 0.11357340720221606,
+      "bypass_count": 0,
+      "n_need": 68,
+      "n_checked": 27,
+      "n_starved": 41,
+      "n_deadline": 41,
+      "n_queue_anyway": 0,
+      "latency_p50_ms": 0.10745803592726588,
+      "latency_p95_ms": 26.322332967538387,
+      "reasons_need": {
+        "strong_available": 27,
+        "deadline": 41
+      },
+      "ablation": "no_tenant",
+      "use_tenant": false,
+      "use_deadline": true,
+      "use_early_reject": true,
+      "overflow_mode": "reject",
+      "rep": 2,
+      "n_strong_slot": 27
     },
     {
       "n": 361,
@@ -330,8 +341,8 @@
       "reject_rate": 0.13573407202216067,
       "bypass_count": 0,
       "n_need": 78,
-      "n_checked": 0,
-      "n_starved": 78,
+      "n_checked": 29,
+      "n_starved": 49,
       "n_deadline": 49,
       "n_queue_anyway": 0,
       "latency_p50_ms": 0.1354580163024366,
@@ -345,33 +356,8 @@
       "use_deadline": true,
       "use_early_reject": true,
       "overflow_mode": "reject",
-      "rep": 3
-    },
-    {
-      "n": 361,
-      "safe_slo_goodput": 2.3,
-      "unsafe_admission_rate": 0.39473684210526316,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.1523545706371191,
-      "bypass_count": 0,
-      "n_need": 86,
-      "n_checked": 0,
-      "n_starved": 86,
-      "n_deadline": 55,
-      "n_queue_anyway": 0,
-      "latency_p50_ms": 0.13537501217797399,
-      "latency_p95_ms": 25.952625030186027,
-      "reasons_need": {
-        "strong_available": 31,
-        "deadline": 55
-      },
-      "ablation": "no_tenant",
-      "use_tenant": false,
-      "use_deadline": true,
-      "use_early_reject": true,
-      "overflow_mode": "reject",
-      "rep": 3
+      "rep": 3,
+      "n_strong_slot": 29
     },
     {
       "n": 361,
@@ -382,8 +368,8 @@
       "reject_rate": 0.13573407202216067,
       "bypass_count": 0,
       "n_need": 78,
-      "n_checked": 0,
-      "n_starved": 78,
+      "n_checked": 29,
+      "n_starved": 49,
       "n_deadline": 0,
       "n_queue_anyway": 0,
       "latency_p50_ms": 0.13570795999839902,
@@ -397,7 +383,8 @@
       "use_deadline": false,
       "use_early_reject": true,
       "overflow_mode": "reject",
-      "rep": 3
+      "rep": 3,
+      "n_strong_slot": 29
     },
     {
       "n": 361,
@@ -408,8 +395,8 @@
       "reject_rate": 0.10249307479224377,
       "bypass_count": 0,
       "n_need": 78,
-      "n_checked": 0,
-      "n_starved": 78,
+      "n_checked": 41,
+      "n_starved": 37,
       "n_deadline": 0,
       "n_queue_anyway": 31,
       "latency_p50_ms": 0.12566597433760762,
@@ -424,7 +411,35 @@
       "use_deadline": true,
       "use_early_reject": false,
       "overflow_mode": "queue",
-      "rep": 3
+      "rep": 3,
+      "n_strong_slot": 41
+    },
+    {
+      "n": 361,
+      "safe_slo_goodput": 2.3,
+      "unsafe_admission_rate": 0.39473684210526316,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 0.9032258064516129,
+      "reject_rate": 0.1523545706371191,
+      "bypass_count": 0,
+      "n_need": 86,
+      "n_checked": 31,
+      "n_starved": 55,
+      "n_deadline": 55,
+      "n_queue_anyway": 0,
+      "latency_p50_ms": 0.13537501217797399,
+      "latency_p95_ms": 25.952625030186027,
+      "reasons_need": {
+        "strong_available": 31,
+        "deadline": 55
+      },
+      "ablation": "no_tenant",
+      "use_tenant": false,
+      "use_deadline": true,
+      "use_early_reject": true,
+      "overflow_mode": "reject",
+      "rep": 3,
+      "n_strong_slot": 31
     },
     {
       "n": 361,
@@ -435,8 +450,8 @@
       "reject_rate": 0.11911357340720222,
       "bypass_count": 0,
       "n_need": 75,
-      "n_checked": 0,
-      "n_starved": 75,
+      "n_checked": 32,
+      "n_starved": 43,
       "n_deadline": 43,
       "n_queue_anyway": 0,
       "latency_p50_ms": 0.13341696467250586,
@@ -450,33 +465,8 @@
       "use_deadline": true,
       "use_early_reject": true,
       "overflow_mode": "reject",
-      "rep": 4
-    },
-    {
-      "n": 361,
-      "safe_slo_goodput": 2.375,
-      "unsafe_admission_rate": 0.410958904109589,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.12742382271468145,
-      "bypass_count": 0,
-      "n_need": 78,
-      "n_checked": 0,
-      "n_starved": 78,
-      "n_deadline": 46,
-      "n_queue_anyway": 0,
-      "latency_p50_ms": 0.13324996689334512,
-      "latency_p95_ms": 25.473332963883877,
-      "reasons_need": {
-        "strong_available": 32,
-        "deadline": 46
-      },
-      "ablation": "no_tenant",
-      "use_tenant": false,
-      "use_deadline": true,
-      "use_early_reject": true,
-      "overflow_mode": "reject",
-      "rep": 4
+      "rep": 4,
+      "n_strong_slot": 32
     },
     {
       "n": 361,
@@ -487,8 +477,8 @@
       "reject_rate": 0.11911357340720222,
       "bypass_count": 0,
       "n_need": 75,
-      "n_checked": 0,
-      "n_starved": 75,
+      "n_checked": 32,
+      "n_starved": 43,
       "n_deadline": 0,
       "n_queue_anyway": 0,
       "latency_p50_ms": 0.13462500646710396,
@@ -502,7 +492,8 @@
       "use_deadline": false,
       "use_early_reject": true,
       "overflow_mode": "reject",
-      "rep": 4
+      "rep": 4,
+      "n_strong_slot": 32
     },
     {
       "n": 361,
@@ -513,8 +504,8 @@
       "reject_rate": 0.08587257617728532,
       "bypass_count": 0,
       "n_need": 75,
-      "n_checked": 0,
-      "n_starved": 75,
+      "n_checked": 44,
+      "n_starved": 31,
       "n_deadline": 0,
       "n_queue_anyway": 32,
       "latency_p50_ms": 0.12920901644974947,
@@ -529,7 +520,35 @@
       "use_deadline": true,
       "use_early_reject": false,
       "overflow_mode": "queue",
-      "rep": 4
+      "rep": 4,
+      "n_strong_slot": 44
+    },
+    {
+      "n": 361,
+      "safe_slo_goodput": 2.375,
+      "unsafe_admission_rate": 0.410958904109589,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 0.96875,
+      "reject_rate": 0.12742382271468145,
+      "bypass_count": 0,
+      "n_need": 78,
+      "n_checked": 32,
+      "n_starved": 46,
+      "n_deadline": 46,
+      "n_queue_anyway": 0,
+      "latency_p50_ms": 0.13324996689334512,
+      "latency_p95_ms": 25.473332963883877,
+      "reasons_need": {
+        "strong_available": 32,
+        "deadline": 46
+      },
+      "ablation": "no_tenant",
+      "use_tenant": false,
+      "use_deadline": true,
+      "use_early_reject": true,
+      "overflow_mode": "reject",
+      "rep": 4,
+      "n_strong_slot": 32
     }
   ],
   "pooled": [
@@ -556,6 +575,20 @@
         "median": 0.0997229916897507,
         "p25": 0.08310249307479224,
         "p75": 0.11911357340720222
+      },
+      "n_checked": {
+        "n": 5,
+        "mean": 28.8,
+        "median": 29.0,
+        "p25": 27.0,
+        "p75": 30.0
+      },
+      "latency_p95_ms": {
+        "n": 5,
+        "mean": 26.378116419073194,
+        "median": 25.512624997645617,
+        "p25": 24.168250034563243,
+        "p75": 28.72241602744907
       }
     },
     {
@@ -581,6 +614,20 @@
         "median": 0.11357340720221606,
         "p25": 0.10249307479224377,
         "p75": 0.12742382271468145
+      },
+      "n_checked": {
+        "n": 5,
+        "mean": 29.6,
+        "median": 31.0,
+        "p25": 27.0,
+        "p75": 32.0
+      },
+      "latency_p95_ms": {
+        "n": 5,
+        "mean": 25.79282479127869,
+        "median": 25.952625030186027,
+        "p25": 25.473332963883877,
+        "p75": 26.212124968878925
       }
     },
     {
@@ -606,6 +653,20 @@
         "median": 0.0997229916897507,
         "p25": 0.08310249307479224,
         "p75": 0.11911357340720222
+      },
+      "n_checked": {
+        "n": 5,
+        "mean": 28.8,
+        "median": 29.0,
+        "p25": 27.0,
+        "p75": 30.0
+      },
+      "latency_p95_ms": {
+        "n": 5,
+        "mean": 25.222033204045147,
+        "median": 25.111458031460643,
+        "p25": 23.651625029742718,
+        "p75": 26.47199999773875
       }
     },
     {
@@ -631,6 +692,20 @@
         "median": 0.06925207756232687,
         "p25": 0.05263157894736842,
         "p75": 0.08587257617728532
+      },
+      "n_checked": {
+        "n": 5,
+        "mean": 39.8,
+        "median": 39.0,
+        "p25": 38.0,
+        "p75": 41.0
+      },
+      "latency_p95_ms": {
+        "n": 5,
+        "mean": 1980.8456165948883,
+        "median": 2001.6700839623809,
+        "p25": 2000.2677500015125,
+        "p75": 2001.8351660110056
       }
     }
   ]

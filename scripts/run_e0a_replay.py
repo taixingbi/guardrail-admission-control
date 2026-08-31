@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E0a on the P4 freeze. Live Nova Micro. Tau stays 0.50 — do not retune."""
+"""Appendix: E0a on the P4 freeze with Nova Micro. Formal paper E0a is Function URL MiniLM."""
 
 from __future__ import annotations
 

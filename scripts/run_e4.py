@@ -2,7 +2,8 @@
 """E4: safety-capacity exhaustion. Gateway RPS fixed; suspicious mix 5%→50%→5%.
 
 Attack inflates ApplyGuardrail demand without raising LLM offered load.
-Tenant A only. Live E0a q when present. Live ApplyGuardrail; no Maverick.
+Tenant A only. Frozen Function URL q. Live ApplyGuardrail; no Maverick.
+Phenomenon experiment: do not use E4 to claim Proposed dominates other policies.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from gasc.report import aggregate, fmt_stat, pool_by
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
-RG = 0.4
+BG = 0.4
 R_GATEWAY = 3.01
 DURATION_S = 420.0
 BIN_S = 10.0
@@ -50,8 +51,8 @@ def _sus_at(t_s: float) -> float:
     return PHASES[-1][1]
 
 
-def _offered_rg(sus: float) -> float:
-    return (sus * R_GATEWAY) / RG
+def _offered_bg(sus: float) -> float:
+    return (sus * R_GATEWAY) / BG
 
 
 async def _one(*, client, guardrail_id, version, limiter, policy, prompt, rng, api_lock, t_s, live_q) -> RunRecord:
@@ -124,7 +125,7 @@ async def _one(*, client, guardrail_id, version, limiter, policy, prompt, rng, a
             "apply_guardrail_action": action,
             "t_s": t_s,
             "suspicious_frac": sus,
-            "offered_strong_frac_of_rg": _offered_rg(sus),
+            "offered_strong_frac_of_bg": _offered_bg(sus),
         },
     )
 
@@ -151,7 +152,7 @@ async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_
         queue_max=16,
         reserved_share={},
         overflow_mode=_overflow(policy),
-        rg_rps=RG,
+        bg_rps=BG,
         burst=1,
     )
     api_lock = asyncio.Lock()
@@ -196,7 +197,7 @@ async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_
                 "policy": policy,
                 "phase": f"{prev:.0f}-{until:.0f}s",
                 "suspicious_frac": sus,
-                "offered_strong_frac_of_rg": _offered_rg(sus),
+                "offered_strong_frac_of_bg": _offered_bg(sus),
                 "n": len(chunk),
             }
         )
@@ -215,7 +216,7 @@ async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_
                 "t1": hi,
                 "n": len(chunk),
                 "suspicious_frac": sus,
-                "offered_strong_frac_of_rg": _offered_rg(sus),
+                "offered_strong_frac_of_bg": _offered_bg(sus),
             }
         )
         series.append(row)
@@ -263,7 +264,7 @@ async def _run() -> dict:
             cells.append({"overall": cell["metrics"], "phases": cell["phases"], "series": cell["series"]})
     overall_rows = [c["overall"] for c in cells]
     return {
-        "rg": RG,
+        "bg": BG,
         "r_gateway": R_GATEWAY,
         "duration_s": DURATION_S,
         "bin_s": BIN_S,
@@ -272,7 +273,7 @@ async def _run() -> dict:
             {
                 "until_s": u,
                 "suspicious_frac": f,
-                "offered_strong_frac_of_rg": _offered_rg(f),
+                "offered_strong_frac_of_bg": _offered_bg(f),
             }
             for u, f in PHASES
         ],
@@ -291,9 +292,10 @@ def _md(summary: dict) -> str:
     lines = [
         "# E4 safety-capacity exhaustion (frozen minilm-l12-h384 q, 5 reps)",
         "",
-        f"R_gateway={R_GATEWAY} rps (constant), Rg={RG} rps, {DURATION_S:.0f}s/policy × {summary['reps']} reps.",
-        "Suspicious/adversarial mix 5% → 50% → 5%. Offered strong demand ≈ 0.38 → 3.76 → 0.38 Rg.",
+        f"R_gateway={R_GATEWAY} rps (constant), Bg={BG} rps, {DURATION_S:.0f}s/policy × {summary['reps']} reps.",
+        "Suspicious/adversarial mix 5% → 50% → 5%. Offered strong demand ≈ 0.38 → 3.76 → 0.38 Bg.",
         f"Tenant A only. q={summary.get('q_source')}. Live ApplyGuardrail, no Maverick.",
+        "Phenomenon: safety-resource exhaustion at constant gateway RPS. Do not use E4 to claim Proposed dominates.",
         "Paper overall cells are median [p25, p75]. Do not retune τ.",
         "",
         "## Overall (median [IQR])",
@@ -321,7 +323,7 @@ def _md(summary: dict) -> str:
             chk_s = "—" if chk is None else f"{chk:.2f}"
             lines.append(
                 f"| {m['policy']} | {m['phase']} | {m['suspicious_frac']:.0%} | "
-                f"{m['offered_strong_frac_of_rg']:.2f} Rg | "
+                f"{m['offered_strong_frac_of_bg']:.2f} Bg | "
                 f"{m['safe_slo_goodput']:.3f} | {m['unsafe_admission_rate']:.3f} | "
                 f"{m['reject_rate']:.3f} | {chk_s} | {m['n_starved']} |"
             )

@@ -3,18 +3,17 @@ experiment: E3
 mode: open_loop
 headline: true
 r_gateway_rps: 3.01
-rg_rps: 0.4
 bg_rps: 0.4
 duration_s: 480
 bin_s: 10
 tenant: A
 policies: [always_strong, risk_only, load_aware, proposed]
 phases:
-  - {until_s: 120, strong_demand_frac_of_rg: 0.5}
-  - {until_s: 240, strong_demand_frac_of_rg: 0.9}
-  - {until_s: 360, strong_demand_frac_of_rg: 1.5}
-  - {until_s: 480, strong_demand_frac_of_rg: 0.6}
-command: python scripts/run_e3.py
+  - {until_s: 120, strong_demand_frac_of_bg: 0.5}
+  - {until_s: 240, strong_demand_frac_of_bg: 0.9}
+  - {until_s: 360, strong_demand_frac_of_bg: 1.5}
+  - {until_s: 480, strong_demand_frac_of_bg: 0.6}
+command: python3 scripts/run_e3.py
 output: results/replay/e3/
 reps: 5
 note: Frozen Function URL q. 5 reps. Gateway RPS constant. Only the oracle-unsafe mix changes.

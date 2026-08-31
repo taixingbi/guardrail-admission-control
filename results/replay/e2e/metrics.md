@@ -1,7 +1,9 @@
-# E2e Maverick scout (Proposed, 1.0 Rg, 40s)
+# E2e sanity (Proposed, 1.0 Bg, 40s)
 
 Tenant A SLO 600 ms unchanged. Maverick C*=2. t_llm_ms=250 (E0c TTFT P50).
-Does not retune τ or Rg. E1–E6 stay Maverick-off.
+Does not retune τ or Bg. E1–E6 stay Maverick-off.
+replay_q uses frozen Function URL q (paper-comparable path). live_path scores every request
+via Function URL MiniLM (E0a P50 ~524 ms) and is not the 600 ms SLO architecture number.
 
 | cell | G_safe@600 | G_safe@800 | UAR | e2e P50 | e2e P95 | TTFT P95 | admitted SLO |
 | --- | --- | --- | --- | --- | --- | --- | --- |

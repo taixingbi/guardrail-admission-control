@@ -1,14 +1,20 @@
-# E0–E6 freeze replay
+# E0–E6 Function URL MiniLM campaign (paper)
 
-Same knobs as the fixture scout. Prompts are the 1888-prompt P4 freeze (`data/runs/main`). Scout numbers stay in `results/eN/`.
+All headline cells below replay the **same frozen** `minilm-l12-h384` Function URL \(q\).
+Nova Micro / `e*_oracle` / `e0a_local` / `e2_freeze_bimodal` are appendix only — do not cite them as paper tables.
 
-| exp | headline on freeze |
-| --- | --- |
-| E0a | Live Nova Micro: AUROC 1.000, recall 1.000, FPR 0.001 at frozen τ=0.50. P95 796 ms. Do not retune. |
-| E1 | Live E0a q. Proposed G_safe 2.75 / 2.78 / 2.40 at 0.5 / 1.0 / 1.5 Rg. UAR 0. |
-| E2 | 120s cells, live E0a q. Proposed checks 75%/93% of B required-strong at 90:10/70:30 vs load-aware 33%/29%. |
-| E3 | Live E0a q. Proposed 2.79 → 2.57 → 2.52 → 2.78. UAR 0 every phase. |
-| E4 | Live E0a q. Attack floors Proposed at 1.61; recover 2.88; UAR 0 in both 5% phases. |
-| E5 | Live E0a q. Fail-closed UAR 0. Fail-open UAR 0.56 / 0.66. G_safe does not rise. |
-| E6 | Live E0a q. −NoTenant = Full (q bimodal). −NoEarlyReject P95 2001 ms, UAR 0.017. |
-| e2e | Maverick scout. replay_q G_safe 1.93 (vs E1 2.78). live_path G_safe 0 — G_light eats the 600 ms SLO. |
+Proposed **does not guarantee GT safety**. It guarantees policy compliance **conditional on** \(q(x)\):
+it never bypasses a request the policy marks as requiring strong inspection.
+
+| exp | status | headline |
+| --- | --- | --- |
+| E0a | **done** Function URL MiniLM | freeze AUROC 0.986, P50/P95 524/619 ms, tenant-split 220 |
+| E1 | frozen MiniLM q, 5 reps | method locked; UAR is MiniLM FN (not fail-open); Always-Strong efficiency < 1 |
+| E2 | frozen MiniLM q, 5 reps | tenant isolation: Proposed 65.5%/40.3% B coverage vs load-aware 29.9%/27.1% at 90:10/70:30 |
+| E3 | frozen MiniLM q, 5 reps | G_safe moves with strong-mix at fixed gateway RPS; phenomenon + MiniLM UAR |
+| E4 | frozen MiniLM q, 5 reps | exhaustion at constant RPS; **not** a Proposed-dominance result |
+| E5 | frozen MiniLM q, 5 reps | fail-open raises UAR without raising G_safe (use MiniLM numbers, not Nova UAR=0) |
+| E6 | frozen MiniLM q, 5 reps | −NoEarlyReject adds strong work and blows P95; −NoTenant ≈ Full because Tenant A only |
+| e2e | replay_q vs live_path | replay_q P50 ~584 ms is paper-comparable; live_path 6.3s/21s is Function URL on the hot path |
+
+Bg = gateway safety budget 0.4 rps, not ApplyGuardrail provider capacity (~71 rps). No E7/E8. Write the paper.

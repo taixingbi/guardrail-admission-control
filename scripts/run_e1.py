@@ -22,7 +22,7 @@ from gasc.report import aggregate, fmt_stat, pool_by
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
-RG = 0.4
+BG = 0.4
 R_GATEWAY = 3.01
 DURATION_S = 40.0
 REPS = 5
@@ -122,6 +122,7 @@ async def _one(
         policy_compliant=policy_compliant(decision, route),  # type: ignore[arg-type]
         safe=safe,
         slo_ok=latency_ms <= TENANT.slo_ms,
+        apply_guardrail_action=action,
         metadata={"apply_guardrail_action": action},
     )
 
@@ -143,7 +144,7 @@ async def _cell(
         queue_max=16,
         reserved_share={"A": 0.0, "B": 0.4},
         overflow_mode=_overflow(policy),
-        rg_rps=RG,
+        bg_rps=BG,
         burst=1,
     )
     rng = random.Random(
@@ -152,7 +153,7 @@ async def _cell(
         + rep * 1000
     )
     interval = 1.0 / R_GATEWAY
-    p_unsafe = (frac * RG) / R_GATEWAY
+    p_unsafe = (frac * BG) / R_GATEWAY
     n_slots = int(DURATION_S / interval)
     recs: list[RunRecord] = []
     t_start = time.perf_counter()
@@ -180,8 +181,8 @@ async def _cell(
     metrics.update(
         {
             "policy": policy,
-            "strong_demand_frac_of_rg": frac,
-            "oracle_strong_rps": frac * RG,
+            "strong_demand_frac_of_bg": frac,
+            "oracle_strong_rps": frac * BG,
             "offered_rps": R_GATEWAY,
             "n": len(recs),
             "rep": rep,
@@ -227,8 +228,8 @@ async def _run() -> dict:
                 (out / f"r{rep}_{policy}_{frac:.2f}.jsonl").write_text(
                     "\n".join(json.dumps(r) for r in cell["records"]) + "\n"
                 )
-    return {
-        "rg": RG,
+    summary = {
+        "bg": BG,
         "r_gateway": R_GATEWAY,
         "duration_s": DURATION_S,
         "reps": REPS,
@@ -237,10 +238,15 @@ async def _run() -> dict:
         "cells": cells,
         "pooled": pool_by(
             cells,
-            ("policy", "strong_demand_frac_of_rg"),
+            ("policy", "strong_demand_frac_of_bg"),
             ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate", "guardrail_capacity_efficiency"),
         ),
     }
+    order = ("always_strong", "risk_only", "load_aware", "proposed")
+    summary["pooled"].sort(
+        key=lambda m: (order.index(m["policy"]), m["strong_demand_frac_of_bg"])
+    )
+    return summary
 
 
 def main() -> int:
@@ -250,16 +256,19 @@ def main() -> int:
     lines = [
         "# E1 static safety-load (frozen minilm-l12-h384 q, 5 reps)",
         "",
-        f"R_gateway={R_GATEWAY} rps, Rg={RG} rps, {DURATION_S:.0f}s/cell × {summary['reps']} reps. "
+        f"R_gateway={R_GATEWAY} rps, Bg={BG} rps (gateway safety budget, not provider capacity), "
+        f"{DURATION_S:.0f}s/cell × {summary['reps']} reps. "
         f"q={summary.get('q_source')}. Live ApplyGuardrail, no Maverick.",
         "Paper cells are median [p25, p75]. Do not retune τ.",
+        "UAR is MiniLM false negatives (q below τ, so scheduler never requires strong), not fail-open.",
+        "Efficiency = risk-required strong occupancy / all strong occupancy (Always-Strong waste is q < τ).",
         "",
         "| policy | demand | G_safe | UAR | reject | efficiency |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
     for m in summary["pooled"]:
         lines.append(
-            f"| {m['policy']} | {m['strong_demand_frac_of_rg']:.2f} Rg | "
+            f"| {m['policy']} | {m['strong_demand_frac_of_bg']:.2f} Bg | "
             f"{fmt_stat(m['safe_slo_goodput'])} | {fmt_stat(m['unsafe_admission_rate'])} | "
             f"{fmt_stat(m['reject_rate'])} | {fmt_stat(m['guardrail_capacity_efficiency'], digits=2)} |"
         )

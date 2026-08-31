@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
 from gasc.limiter import StrongLimiter
 from gasc.replay_data import load_scored_prompts, q_for, replay_dir, split_q_bands, split_safe_unsafe
-from gasc.report import aggregate, fmt_stat, stat_pack
+from gasc.report import aggregate, applied_strong, fmt_stat, stat_pack
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
@@ -132,6 +132,7 @@ async def _one(*, client, guardrail_id, version, limiter, policy, tenant, prompt
         policy_compliant=policy_compliant(decision, route),  # type: ignore[arg-type]
         safe=not (gt_unsafe and admitted),
         slo_ok=latency_ms <= tenant.slo_ms,
+        apply_guardrail_action=action,
         metadata={
             "apply_guardrail_action": action,
             "q_band": _q_band(q),
@@ -158,16 +159,8 @@ def _cell_metrics(recs: list[RunRecord], *, policy: str, mix, duration_s: float,
         "g_safe_a": aggregate(recs_a, duration_s=duration_s)["safe_slo_goodput"] if recs_a else None,
         "g_safe_b": aggregate(recs_b, duration_s=duration_s)["safe_slo_goodput"] if recs_b else None,
         "n_need_b": sum(1 for r in recs_b if r.decision.need_strong),
-        "n_checked_b": sum(
-            1
-            for r in recs_b
-            if r.decision.need_strong and r.metadata.get("apply_guardrail_action") is not None
-        ),
-        "n_starved_b": sum(
-            1
-            for r in recs_b
-            if r.decision.need_strong and r.metadata.get("apply_guardrail_action") is None
-        ),
+        "n_checked_b": sum(1 for r in recs_b if r.decision.need_strong and applied_strong(r)),
+        "n_starved_b": sum(1 for r in recs_b if r.decision.need_strong and not applied_strong(r)),
         "n_b_unsafe": sum(1 for r in recs_b if r.gt_label == "unsafe"),
         "uar_b": aggregate(recs_b, duration_s=duration_s)["unsafe_admission_rate"] if recs_b else None,
         "n_split_a": len(split_a),
@@ -175,7 +168,7 @@ def _cell_metrics(recs: list[RunRecord], *, policy: str, mix, duration_s: float,
         "split_a_direct": sum(1 for r in split_a if r.decision.route == "direct" or r.route == "direct"),
         "split_b_need_strong": sum(1 for r in split_b if r.decision.need_strong),
         "split_b_checked": sum(
-            1 for r in split_b if r.decision.need_strong and r.metadata.get("apply_guardrail_action") is not None
+            1 for r in split_b if r.decision.need_strong and applied_strong(r)
         ),
     }
 
@@ -253,6 +246,7 @@ def _pool_reps(cells: list[dict]) -> list[dict]:
                 "split_b_checked": sum(r["split_b_checked"] for r in rows),
             }
         )
+    out.sort(key=lambda m: (POLICIES.index(m["policy"]), -m["mix_a"]))
     return out
 
 
@@ -338,16 +332,24 @@ def main() -> int:
         "",
         "## Isolation (pooled B required-strong)",
         "",
-        "| policy | A:B | G_safe | G_safe_B | need_B | checked_B | starved_B | n_B_unsafe | UAR_B |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| policy | A:B | G_safe | G_safe_B | need_B | checked_B | starved_B | coverage | n_B_unsafe | UAR_B |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for m in summary["pooled"]:
+        need = m["n_need_b"] or 0
+        cov = (m["n_checked_b"] / need) if need else 0.0
         lines.append(
             f"| {m['policy']} | {m['mix_a']:.0%}:{m['mix_b']:.0%} | "
             f"{fmt_stat(m['safe_slo_goodput'])} | {fmt_stat(m['g_safe_b'])} | "
             f"{m['n_need_b']} | {m['n_checked_b']} | {m['n_starved_b']} | "
-            f"{m['n_b_unsafe']} | {fmt_stat(m['uar_b'])} |"
+            f"{cov:.1%} | {m['n_b_unsafe']} | {fmt_stat(m['uar_b'])} |"
         )
+    lines += [
+        "",
+        "Coverage = checked / need among B required-strong. UAR_B includes MiniLM false negatives",
+        "(GT-unsafe with q below τ_B); that is classifier error, not fail-open bypass.",
+        "Proposed guarantees policy compliance conditional on q, not GT safety.",
+    ]
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"wrote {out}")
     return 0

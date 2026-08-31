@@ -2,13 +2,12 @@ name: e1_static_safety_load
 experiment: E1
 mode: open_loop
 policies: [always_strong, risk_only, load_aware, proposed]
-strong_demand_frac_of_rg: [0.50, 1.00, 1.50]
+strong_demand_frac_of_bg: [0.50, 1.00, 1.50]
 r_gateway_rps: 3.01
-rg_rps: 0.4
 bg_rps: 0.4
 duration_s: 40
 reps: 5
-command: python scripts/run_e1.py
+command: python3 scripts/run_e1.py
 output: results/replay/e1/
-note: Formal. Frozen Function URL q. 5 reps. Median [IQR] in metrics.md.
+note: Formal. Frozen Function URL q. 5 reps. Median [IQR] in metrics.md. Demand is a fraction of gateway budget Bg.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """E3: dynamic safety load. Gateway RPS fixed; strong-mix steps over 480 s.
 
-Phases: 0.5 → 0.9 → 1.5 → 0.6 Rg. Tenant A only. Live E0a q when present.
+Phases: 0.5 → 0.9 → 1.5 → 0.6 Bg. Tenant A only. Frozen Function URL q.
 Live ApplyGuardrail; Maverick skipped so the series isolates safety capacity.
 """
 
@@ -23,7 +23,7 @@ from gasc.report import aggregate, fmt_stat, pool_by
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
-RG = 0.4
+BG = 0.4
 R_GATEWAY = 3.01
 DURATION_S = 480.0
 BIN_S = 10.0
@@ -55,10 +55,10 @@ def _phase_name(t_s: float) -> str:
     prev = 0.0
     for until, frac in PHASES:
         if t_s < until:
-            return f"{prev:.0f}-{until:.0f}s@{frac:.1f}Rg"
+            return f"{prev:.0f}-{until:.0f}s@{frac:.1f}Bg"
         prev = until
     until, frac = PHASES[-1]
-    return f"{prev:.0f}-{until:.0f}s@{frac:.1f}Rg"
+    return f"{prev:.0f}-{until:.0f}s@{frac:.1f}Bg"
 
 
 async def _one(*, client, guardrail_id, version, limiter, policy, prompt, rng, api_lock, t_s, live_q) -> RunRecord:
@@ -129,7 +129,7 @@ async def _one(*, client, guardrail_id, version, limiter, policy, prompt, rng, a
         metadata={
             "apply_guardrail_action": action,
             "t_s": t_s,
-            "strong_frac_of_rg": _frac_at(t_s),
+            "strong_frac_of_bg": _frac_at(t_s),
             "phase": _phase_name(t_s),
         },
     )
@@ -157,7 +157,7 @@ async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_
         queue_max=16,
         reserved_share={},
         overflow_mode=_overflow(policy),
-        rg_rps=RG,
+        bg_rps=BG,
         burst=1,
     )
     api_lock = asyncio.Lock()
@@ -167,7 +167,7 @@ async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_
     planned = []
     for i in range(n_slots):
         t_s = i * interval
-        p_unsafe = (_frac_at(t_s) * RG) / R_GATEWAY
+        p_unsafe = (_frac_at(t_s) * BG) / R_GATEWAY
         pool = prompts_unsafe if rng.random() < p_unsafe else prompts_safe
         planned.append((t_s, rng.choice(pool)))
     t_start = time.perf_counter()
@@ -198,7 +198,7 @@ async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_
     for until, frac in PHASES:
         chunk = [r for r in recs if prev <= float(r.metadata["t_s"]) < until]
         row = _window_metrics(chunk, until - prev)
-        row.update({"policy": policy, "phase": f"{prev:.0f}-{until:.0f}s", "strong_frac_of_rg": frac, "n": len(chunk)})
+        row.update({"policy": policy, "phase": f"{prev:.0f}-{until:.0f}s", "strong_frac_of_bg": frac, "n": len(chunk)})
         phases.append(row)
         prev = until
     series = []
@@ -207,7 +207,7 @@ async def _cell(*, client, guardrail_id, version, policy, prompts_safe, prompts_
         lo, hi = b * BIN_S, (b + 1) * BIN_S
         chunk = [r for r in recs if lo <= float(r.metadata["t_s"]) < hi]
         row = _window_metrics(chunk, BIN_S)
-        row.update({"t0": lo, "t1": hi, "n": len(chunk), "strong_frac_of_rg": _frac_at(lo)})
+        row.update({"t0": lo, "t1": hi, "n": len(chunk), "strong_frac_of_bg": _frac_at(lo)})
         series.append(row)
     return {
         "metrics": overall,
@@ -253,12 +253,12 @@ async def _run() -> dict:
             cells.append({"overall": cell["metrics"], "phases": cell["phases"], "series": cell["series"]})
     overall_rows = [c["overall"] for c in cells]
     return {
-        "rg": RG,
+        "bg": BG,
         "r_gateway": R_GATEWAY,
         "duration_s": DURATION_S,
         "bin_s": BIN_S,
         "reps": REPS,
-        "phases": [{"until_s": u, "strong_frac_of_rg": f} for u, f in PHASES],
+        "phases": [{"until_s": u, "strong_frac_of_bg": f} for u, f in PHASES],
         "q_source": "frozen_g_light",
         "n_live_q": len(live_q),
         "cells": cells,
@@ -274,7 +274,7 @@ def _md(summary: dict) -> str:
     lines = [
         "# E3 dynamic safety load (frozen minilm-l12-h384 q, 5 reps)",
         "",
-        f"R_gateway={R_GATEWAY} rps, Rg={RG} rps, {DURATION_S:.0f}s/policy × {summary['reps']} reps. Mix 0.5→0.9→1.5→0.6 Rg.",
+        f"R_gateway={R_GATEWAY} rps, Bg={BG} rps, {DURATION_S:.0f}s/policy × {summary['reps']} reps. Mix 0.5→0.9→1.5→0.6 Bg.",
         f"Tenant A only. q={summary.get('q_source')}. Live ApplyGuardrail, no Maverick.",
         "Paper overall cells are median [p25, p75]. Do not retune τ.",
         "",
@@ -302,7 +302,7 @@ def _md(summary: dict) -> str:
             chk = m["checked_rate"]
             chk_s = "—" if chk is None else f"{chk:.2f}"
             lines.append(
-                f"| {m['policy']} | {m['phase']} | {m['strong_frac_of_rg']:.1f} Rg | "
+                f"| {m['policy']} | {m['phase']} | {m['strong_frac_of_bg']:.1f} Bg | "
                 f"{m['safe_slo_goodput']:.3f} | {m['unsafe_admission_rate']:.3f} | "
                 f"{m['reject_rate']:.3f} | {chk_s} | {m['n_starved']} |"
             )

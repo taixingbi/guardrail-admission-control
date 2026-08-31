@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E5: fail-open vs fail-closed at 1.5 and 2.0 Rg.
+"""E5: fail-open vs fail-closed at 1.5 and 2.0 Bg.
 
 Proposed only. Fail-open turns off deadline so exhaustion can reach bypass;
 fail-closed keeps the frozen B4 path (deadline + safety_floor).
@@ -23,7 +23,7 @@ from gasc.report import aggregate, fmt_stat, pool_by
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
-RG = 0.4
+BG = 0.4
 R_GATEWAY = 3.01
 DURATION_S = 60.0
 REPS = 5
@@ -134,13 +134,13 @@ async def _cell(*, client, guardrail_id, version, mode, fail_closed, use_deadlin
         queue_max=16,
         reserved_share={},
         overflow_mode="reject",
-        rg_rps=RG,
+        bg_rps=BG,
         burst=1,
     )
     api_lock = asyncio.Lock()
     rng = random.Random(50 + int(frac * 10) + (0 if fail_closed else 7) + rep * 1000)
     interval = 1.0 / R_GATEWAY
-    p_unsafe = (frac * RG) / R_GATEWAY
+    p_unsafe = (frac * BG) / R_GATEWAY
     n_slots = int(DURATION_S / interval)
     planned = [rng.choice(prompts_unsafe if rng.random() < p_unsafe else prompts_safe) for _ in range(n_slots)]
     t_start = time.perf_counter()
@@ -170,7 +170,7 @@ async def _cell(*, client, guardrail_id, version, mode, fail_closed, use_deadlin
         {
             "mode": mode,
             "fail_closed": fail_closed,
-            "strong_demand_frac_of_rg": frac,
+            "strong_demand_frac_of_bg": frac,
             "n": len(recs),
             "rep": rep,
         }
@@ -198,7 +198,7 @@ async def _run() -> dict:
     for rep in range(REPS):
         for mode, fail_closed, use_deadline in MODES:
             for frac in FRACS:
-                print(f"E5 r{rep} {mode} {frac:.1f} Rg …", flush=True)
+                print(f"E5 r{rep} {mode} {frac:.1f} Bg …", flush=True)
                 cell = await _cell(
                     client=client,
                     guardrail_id=gid,
@@ -217,8 +217,8 @@ async def _run() -> dict:
                 (out / f"r{rep}_{mode}_{frac:.1f}.jsonl").write_text(
                     "\n".join(json.dumps(r) for r in cell["records"]) + "\n"
                 )
-    return {
-        "rg": RG,
+    summary = {
+        "bg": BG,
         "r_gateway": R_GATEWAY,
         "duration_s": DURATION_S,
         "reps": REPS,
@@ -227,10 +227,12 @@ async def _run() -> dict:
         "cells": cells,
         "pooled": pool_by(
             cells,
-            ("mode", "strong_demand_frac_of_rg"),
+            ("mode", "strong_demand_frac_of_bg"),
             ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate", "bypass_rate_need"),
         ),
     }
+    summary["pooled"].sort(key=lambda m: (0 if "closed" in m["mode"] else 1, m["strong_demand_frac_of_bg"]))
+    return summary
 
 
 def main() -> int:
@@ -240,16 +242,17 @@ def main() -> int:
     lines = [
         "# E5 fail-open vs fail-closed (frozen minilm-l12-h384 q, 5 reps)",
         "",
-        f"Proposed only. R_gateway={R_GATEWAY}, Rg={RG}, {DURATION_S:.0f}s/cell × {summary['reps']} reps. q={summary.get('q_source')}.",
+        f"Proposed only. R_gateway={R_GATEWAY}, Bg={BG}, {DURATION_S:.0f}s/cell × {summary['reps']} reps. q={summary.get('q_source')}.",
         "Fail-open disables deadline so exhaustion can bypass. Fail-closed keeps frozen B4.",
         "Paper cells are median [p25, p75]. MiniLM is a screener, not the authority. Do not retune τ.",
+        "Fail-open raises UAR without raising Safe Goodput. Residual fail-closed UAR is MiniLM FN, not bypass.",
         "",
         "| mode | demand | G_safe | UAR | reject | bypass/need |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
     for m in summary["pooled"]:
         lines.append(
-            f"| {m['mode']} | {m['strong_demand_frac_of_rg']:.1f} Rg | "
+            f"| {m['mode']} | {m['strong_demand_frac_of_bg']:.1f} Bg | "
             f"{fmt_stat(m['safe_slo_goodput'])} | {fmt_stat(m['unsafe_admission_rate'])} | "
             f"{fmt_stat(m['reject_rate'])} | {fmt_stat(m['bypass_rate_need'], digits=2)} |"
         )

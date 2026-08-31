@@ -22,11 +22,21 @@ class SchedulerInputs:
     global_tau: float = 0.5
 
 
+def _risk_tau(inp: SchedulerInputs) -> float:
+    if inp.policy == "proposed" and inp.use_tenant:
+        return inp.tenant.tau
+    return inp.global_tau
+
+
+def _risk_required(inp: SchedulerInputs) -> bool:
+    """True iff q ≥ the risk threshold (not always_strong's 'everything needs strong')."""
+    return inp.q >= _risk_tau(inp)
+
+
 def _need_strong(inp: SchedulerInputs) -> bool:
     if inp.policy == "always_strong":
         return True
-    tau = inp.tenant.tau if (inp.policy == "proposed" and inp.use_tenant) else inp.global_tau
-    return inp.q >= tau
+    return _risk_required(inp)
 
 
 def _deadline_miss(inp: SchedulerInputs) -> bool:
@@ -39,6 +49,7 @@ def _deadline_miss(inp: SchedulerInputs) -> bool:
 
 def decide(inp: SchedulerInputs) -> ScheduleDecision:
     need = _need_strong(inp)
+    risk_req = _risk_required(inp)
     if not need:
         return ScheduleDecision(
             route="direct",
@@ -46,6 +57,7 @@ def decide(inp: SchedulerInputs) -> ScheduleDecision:
             need_strong=False,
             policy_required=False,
             q=inp.q,
+            risk_required=risk_req,
         )
 
     if inp.policy == "risk_only":
@@ -55,6 +67,7 @@ def decide(inp: SchedulerInputs) -> ScheduleDecision:
             need_strong=True,
             policy_required=True,
             q=inp.q,
+            risk_required=risk_req,
         )
 
     if inp.use_deadline and inp.use_early_reject and _deadline_miss(inp):
@@ -64,6 +77,7 @@ def decide(inp: SchedulerInputs) -> ScheduleDecision:
             need_strong=True,
             policy_required=True,
             q=inp.q,
+            risk_required=risk_req,
         )
 
     if inp.strong_available:
@@ -73,6 +87,7 @@ def decide(inp: SchedulerInputs) -> ScheduleDecision:
             need_strong=True,
             policy_required=True,
             q=inp.q,
+            risk_required=risk_req,
         )
 
     if inp.policy == "load_aware" or not inp.use_early_reject:
@@ -83,6 +98,7 @@ def decide(inp: SchedulerInputs) -> ScheduleDecision:
             need_strong=True,
             policy_required=True,
             q=inp.q,
+            risk_required=risk_req,
         )
 
     if inp.fail_closed:
@@ -92,6 +108,7 @@ def decide(inp: SchedulerInputs) -> ScheduleDecision:
             need_strong=True,
             policy_required=True,
             q=inp.q,
+            risk_required=risk_req,
         )
 
     return ScheduleDecision(
@@ -101,6 +118,7 @@ def decide(inp: SchedulerInputs) -> ScheduleDecision:
         policy_required=True,
         q=inp.q,
         bypass=True,
+        risk_required=risk_req,
     )
 
 

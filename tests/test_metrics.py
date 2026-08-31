@@ -70,3 +70,91 @@ def test_safe_slo_goodput_and_unsafe_admission():
     assert m["safe_slo_goodput"] == 0.5  # only served compliant-safe-SLO record / 2s
     assert m["unsafe_admission_rate"] == 1.0
     assert m["bypass_count"] == 0
+
+
+def test_always_strong_efficiency_counts_risk_waste():
+    """Always-Strong occupancy with q < τ is waste; efficiency is not identically 1."""
+    waste = _rec(
+        request_id="waste",
+        policy="always_strong",
+        q=0.1,
+        route="strong",
+        decision=ScheduleDecision(
+            route="strong",
+            reason="strong_available",
+            need_strong=True,
+            policy_required=True,
+            q=0.1,
+            risk_required=False,
+        ),
+    )
+    needed = _rec(
+        request_id="need",
+        policy="always_strong",
+        q=0.9,
+        route="strong",
+        decision=ScheduleDecision(
+            route="strong",
+            reason="strong_available",
+            need_strong=True,
+            policy_required=True,
+            q=0.9,
+            risk_required=True,
+        ),
+    )
+    m = aggregate([waste, needed], duration_s=1.0)
+    assert m["guardrail_capacity_efficiency"] == 0.5
+
+
+def test_risk_only_efficiency_is_one():
+    recs = [
+        _rec(
+            request_id="s",
+            policy="risk_only",
+            q=0.8,
+            route="strong",
+            decision=ScheduleDecision(
+                route="strong",
+                reason="risk_only",
+                need_strong=True,
+                policy_required=True,
+                q=0.8,
+                risk_required=True,
+            ),
+        ),
+        _rec(request_id="d", q=0.1),
+    ]
+    m = aggregate(recs, duration_s=1.0)
+    assert m["guardrail_capacity_efficiency"] == 1.0
+
+
+def test_legacy_jsonl_efficiency_reconstructs_from_q():
+    """Older records omit risk_required; reconstruct vs global τ=0.50."""
+    waste = _rec(
+        request_id="waste",
+        policy="always_strong",
+        q=0.1,
+        route="strong",
+        decision=ScheduleDecision(
+            route="strong",
+            reason="strong_available",
+            need_strong=True,
+            policy_required=True,
+            q=0.1,
+        ),
+    )
+    needed = _rec(
+        request_id="need",
+        policy="always_strong",
+        q=0.9,
+        route="strong",
+        decision=ScheduleDecision(
+            route="strong",
+            reason="strong_available",
+            need_strong=True,
+            policy_required=True,
+            q=0.9,
+        ),
+    )
+    m = aggregate([waste, needed], duration_s=1.0)
+    assert m["guardrail_capacity_efficiency"] == 0.5

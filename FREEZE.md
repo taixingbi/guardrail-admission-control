@@ -21,7 +21,7 @@ Fill the measured cells after E0. Do not retune \( \tau \), \( B_g \), prompts, 
 | Maverick \(R_{knee}\) | **4.30 rps** | locked after E0c |
 | Fail mode | fail-closed (E5 compares open) | locked for B4 |
 | Judge (freeze only) | Claude Haiku 4.5 `us.anthropic.claude-haiku-4-5-20251001-v1:0` | locked |
-| Frozen G_light \(q\) | Function URL `minilm-l12-h384` on freeze+XSTest+WildGuardTest (`results/g_light/`) | **pending E0a redo** |
+| Frozen G_light \(q\) | Function URL `minilm-l12-h384` on freeze+XSTest+WildGuardTest (`results/g_light/`, `results/replay/e0a/`) | **locked** |
 | Frozen prompts | **1888** (472 complete S0–S3 families) in `data/runs/main` | locked after P4 |
 
 ## Do not
@@ -30,6 +30,7 @@ Fill the measured cells after E0. Do not retune \( \tau \), \( B_g \), prompts, 
 - Change guardrail filter strengths after E0b.
 - Use Nova Micro / ApplyGuardrail / Maverick labels as freeze acceptance.
 - Cite laptop MiniLM (`models/g_light`, P50 6.2 ms) as paper G_light. Paper G_light is `minilm-l12-h384`.
-- Treat current laptop-MiniLM E1–E6 cells as final paper results. Finish Function URL E0a + 5-rep replay first.
+- Cite Nova / `e*_oracle` / old `e0a_live` cells as MiniLM paper tables. Formal E0a–E6 are Function URL MiniLM, 5 reps.
+- Write “Proposed guarantees safety.” The claim is policy compliance **conditional on** \(q(x)\).
 - Add E7/E8 or retune \(\tau\) on XSTest / WildGuardTest.
 - Map AWS `bedrock-tenant-a/b/c/d` to paper Tenant A/B.

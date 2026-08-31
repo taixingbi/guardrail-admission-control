@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E6: ablations on the E3 proposed overload phase (1.5 Rg, 240–360 s).
+"""E6: ablations on the E3 proposed overload phase (1.5 Bg, 240–360 s).
 
 Replays the same arrivals/prompts as E3 proposed. Four scheduler flags:
 Full / -NoTenant / -NoDeadline / -NoEarlyReject.
@@ -19,11 +19,11 @@ from dotenv import load_dotenv
 from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
 from gasc.limiter import StrongLimiter
 from gasc.replay_data import load_live_q, load_replay_prompts, q_for, replay_dir, split_safe_unsafe
-from gasc.report import aggregate, fmt_stat, pool_by
+from gasc.report import aggregate, applied_strong, fmt_stat, pool_by
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
-RG = 0.4
+BG = 0.4
 R_GATEWAY = 3.01
 E3_DURATION_S = 480.0
 OVERLOAD_LO = 240.0
@@ -56,7 +56,7 @@ def _e3_proposed_overload(prompts_safe, prompts_unsafe, *, rep: int = 0):
     planned = []
     for i in range(n_slots):
         t_s = i * interval
-        p_unsafe = (_frac_at(t_s) * RG) / R_GATEWAY
+        p_unsafe = (_frac_at(t_s) * BG) / R_GATEWAY
         pool = prompts_unsafe if rng.random() < p_unsafe else prompts_safe
         planned.append((t_s, rng.choice(pool)))
     return [(t_s, p) for t_s, p in planned if OVERLOAD_LO <= t_s < OVERLOAD_HI]
@@ -126,6 +126,7 @@ async def _one(*, client, guardrail_id, version, limiter, variant, use_tenant, u
         policy_compliant=policy_compliant(decision, route),  # type: ignore[arg-type]
         safe=not (gt_unsafe and admitted),
         slo_ok=latency_ms <= TENANT.slo_ms,
+        apply_guardrail_action=action,
         metadata={
             "apply_guardrail_action": action,
             "ablation": variant,
@@ -153,8 +154,8 @@ def _window(recs: list[RunRecord], duration_s: float) -> dict:
     m.update(
         {
             "n_need": len(need),
-            "n_checked": sum(1 for r in need if r.metadata.get("apply_guardrail_action") is not None),
-            "n_starved": sum(1 for r in need if r.metadata.get("apply_guardrail_action") is None),
+            "n_checked": sum(1 for r in need if applied_strong(r)),
+            "n_starved": sum(1 for r in need if not applied_strong(r)),
             "n_deadline": sum(1 for r in recs if r.decision.reason == "deadline"),
             "n_queue_anyway": sum(1 for r in recs if r.decision.reason == "queue_anyway"),
             "latency_p50_ms": pct(50),
@@ -171,7 +172,7 @@ async def _cell(*, client, guardrail_id, version, variant, use_tenant, use_deadl
         queue_max=16,
         reserved_share={},
         overflow_mode=overflow,
-        rg_rps=RG,
+        bg_rps=BG,
         burst=1,
     )
     api_lock = asyncio.Lock()
@@ -253,20 +254,23 @@ async def _run() -> dict:
             print(json.dumps(cell["metrics"], indent=2), flush=True)
             cells.append(cell["metrics"])
             (out / f"r{rep}_{variant}.jsonl").write_text("\n".join(json.dumps(r) for r in cell["records"]) + "\n")
-    return {
-        "rg": RG,
+    summary = {
+        "bg": BG,
         "r_gateway": R_GATEWAY,
         "reps": REPS,
-        "reuse_trace": "e3_proposed_240_360s_1.5Rg",
+        "reuse_trace": "e3_proposed_240_360s_1.5Bg",
         "q_source": "frozen_g_light",
         "n_live_q": len(live_q),
         "cells": cells,
         "pooled": pool_by(
             cells,
             ("ablation",),
-            ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate"),
+            ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate", "n_checked", "latency_p95_ms"),
         ),
     }
+    order = ("full", "no_tenant", "no_deadline", "no_early_reject")
+    summary["pooled"].sort(key=lambda m: order.index(m["ablation"]))
+    return summary
 
 
 def main() -> int:
@@ -274,18 +278,20 @@ def main() -> int:
     out = replay_dir("e6")
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
-        "# E6 ablations (frozen minilm-l12-h384 q, 5 reps, E3 overload 1.5 Rg)",
+        "# E6 ablations (frozen minilm-l12-h384 q, 5 reps, E3 overload 1.5 Bg)",
         "",
         f"Same arrival process as E3 proposed overload. Fail-closed. Tenant A only. q={summary.get('q_source')}.",
         "Paper cells are median [p25, p75]. Full vs −NoEarlyReject is the systems headline. Do not retune τ.",
+        "−NoTenant ≈ Full because this cell is Tenant A only (not because q is bimodal).",
         "",
-        "| ablation | G_safe | UAR | reject |",
-        "| --- | --- | --- | --- |",
+        "| ablation | G_safe | UAR | reject | checked | P95 ms |",
+        "| --- | --- | --- | --- | --- | --- |",
     ]
     for m in summary["pooled"]:
         lines.append(
             f"| {m['ablation']} | {fmt_stat(m['safe_slo_goodput'])} | "
-            f"{fmt_stat(m['unsafe_admission_rate'])} | {fmt_stat(m['reject_rate'])} |"
+            f"{fmt_stat(m['unsafe_admission_rate'])} | {fmt_stat(m['reject_rate'])} | "
+            f"{fmt_stat(m['n_checked'], digits=1)} | {fmt_stat(m['latency_p95_ms'], digits=0)} |"
         )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"wrote {out}", flush=True)

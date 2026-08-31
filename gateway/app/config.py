@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     guardrail_version: str = "DRAFT"
     policy: str = "proposed"
     fail_closed: bool = True
-    rg_rps: float = 0.4
+    bg_rps: float = 0.4
+    rg_rps: float | None = None
     strong_inflight: int = 2
     queue_max: int = 16
     default_tau: float = 0.5

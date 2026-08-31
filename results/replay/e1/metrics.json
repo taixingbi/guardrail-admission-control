@@ -1,23 +1,20 @@
 {
-  "rg": 0.4,
+  "bg": 0.4,
   "r_gateway": 3.01,
   "duration_s": 40.0,
   "reps": 5,
   "q_source": "frozen_g_light",
-  "n_live_q": 4037,
   "cells": [
     {
       "n": 120,
       "safe_slo_goodput": 0.825,
       "unsafe_admission_rate": 0.875,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.10144927536231885,
       "reject_rate": 0.425,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 0
     },
     {
@@ -25,13 +22,11 @@
       "safe_slo_goodput": 0.975,
       "unsafe_admission_rate": 0.4375,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.15625,
       "reject_rate": 0.4666666666666667,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 0
     },
     {
@@ -39,55 +34,11 @@
       "safe_slo_goodput": 0.775,
       "unsafe_admission_rate": 0.4230769230769231,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.16417910447761194,
       "reject_rate": 0.44166666666666665,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
-      "rep": 0
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.675,
-      "unsafe_admission_rate": 0.75,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.03333333333333333,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
-      "rep": 0
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.325,
-      "unsafe_admission_rate": 0.5185185185185185,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.10833333333333334,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
-      "rep": 0
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.4,
-      "unsafe_admission_rate": 0.5,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.125,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 0
     },
     {
@@ -99,9 +50,7 @@
       "reject_rate": 0.016666666666666666,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 0
     },
     {
@@ -113,9 +62,7 @@
       "reject_rate": 0.041666666666666664,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 0
     },
     {
@@ -127,9 +74,7 @@
       "reject_rate": 0.09166666666666666,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 0
     },
     {
@@ -141,9 +86,7 @@
       "reject_rate": 0.016666666666666666,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 0
     },
     {
@@ -155,9 +98,7 @@
       "reject_rate": 0.025,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 0
     },
     {
@@ -169,9 +110,43 @@
       "reject_rate": 0.10833333333333334,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
+      "rep": 0
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.675,
+      "unsafe_admission_rate": 0.75,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.03333333333333333,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 0.5,
+      "rep": 0
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.325,
+      "unsafe_admission_rate": 0.5185185185185185,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.10833333333333334,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 1.0,
+      "rep": 0
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.4,
+      "unsafe_admission_rate": 0.5,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.125,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 0
     },
     {
@@ -179,13 +154,11 @@
       "safe_slo_goodput": 0.9,
       "unsafe_admission_rate": 0.5714285714285714,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.1044776119402985,
       "reject_rate": 0.44166666666666665,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 1
     },
     {
@@ -193,13 +166,11 @@
       "safe_slo_goodput": 0.875,
       "unsafe_admission_rate": 0.6923076923076923,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.15151515151515152,
       "reject_rate": 0.45,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 1
     },
     {
@@ -207,55 +178,11 @@
       "safe_slo_goodput": 0.8,
       "unsafe_admission_rate": 0.55,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.22058823529411764,
       "reject_rate": 0.43333333333333335,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
-      "rep": 1
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.85,
-      "unsafe_admission_rate": 0.4,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.03333333333333333,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
-      "rep": 1
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.6,
-      "unsafe_admission_rate": 0.8,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.03333333333333333,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
-      "rep": 1
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.35,
-      "unsafe_admission_rate": 0.4,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.13333333333333333,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 1
     },
     {
@@ -267,9 +194,7 @@
       "reject_rate": 0.025,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 1
     },
     {
@@ -281,9 +206,7 @@
       "reject_rate": 0.05,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 1
     },
     {
@@ -295,9 +218,7 @@
       "reject_rate": 0.13333333333333333,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 1
     },
     {
@@ -309,9 +230,7 @@
       "reject_rate": 0.025,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 1
     },
     {
@@ -323,9 +242,7 @@
       "reject_rate": 0.058333333333333334,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 1
     },
     {
@@ -337,9 +254,43 @@
       "reject_rate": 0.09166666666666666,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
+      "rep": 1
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.85,
+      "unsafe_admission_rate": 0.4,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.03333333333333333,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 0.5,
+      "rep": 1
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.6,
+      "unsafe_admission_rate": 0.8,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.03333333333333333,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 1.0,
+      "rep": 1
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.35,
+      "unsafe_admission_rate": 0.4,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.13333333333333333,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 1
     },
     {
@@ -347,13 +298,11 @@
       "safe_slo_goodput": 1.025,
       "unsafe_admission_rate": 0.5,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.07462686567164178,
       "reject_rate": 0.44166666666666665,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 2
     },
     {
@@ -361,13 +310,11 @@
       "safe_slo_goodput": 0.725,
       "unsafe_admission_rate": 0.8,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.27941176470588236,
       "reject_rate": 0.43333333333333335,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 2
     },
     {
@@ -375,55 +322,11 @@
       "safe_slo_goodput": 0.9,
       "unsafe_admission_rate": 0.56,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.208955223880597,
       "reject_rate": 0.44166666666666665,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
-      "rep": 2
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.8,
-      "unsafe_admission_rate": 0.5,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.03333333333333333,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
-      "rep": 2
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.575,
-      "unsafe_admission_rate": 0.7857142857142857,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.05,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
-      "rep": 2
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.4,
-      "unsafe_admission_rate": 0.5,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.10833333333333334,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 2
     },
     {
@@ -435,9 +338,7 @@
       "reject_rate": 0.008333333333333333,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 2
     },
     {
@@ -449,9 +350,7 @@
       "reject_rate": 0.041666666666666664,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 2
     },
     {
@@ -463,9 +362,7 @@
       "reject_rate": 0.06666666666666667,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 2
     },
     {
@@ -477,9 +374,7 @@
       "reject_rate": 0.05,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 2
     },
     {
@@ -491,9 +386,7 @@
       "reject_rate": 0.05,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 2
     },
     {
@@ -505,9 +398,43 @@
       "reject_rate": 0.1,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
+      "rep": 2
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.8,
+      "unsafe_admission_rate": 0.5,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.03333333333333333,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 0.5,
+      "rep": 2
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.575,
+      "unsafe_admission_rate": 0.7857142857142857,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.05,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 1.0,
+      "rep": 2
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.4,
+      "unsafe_admission_rate": 0.5,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.10833333333333334,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 2
     },
     {
@@ -515,13 +442,11 @@
       "safe_slo_goodput": 0.925,
       "unsafe_admission_rate": 0.8,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.16417910447761194,
       "reject_rate": 0.44166666666666665,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 3
     },
     {
@@ -529,13 +454,11 @@
       "safe_slo_goodput": 0.9,
       "unsafe_admission_rate": 0.3333333333333333,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.08823529411764706,
       "reject_rate": 0.43333333333333335,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 3
     },
     {
@@ -543,55 +466,11 @@
       "safe_slo_goodput": 0.875,
       "unsafe_admission_rate": 0.42857142857142855,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.203125,
       "reject_rate": 0.4666666666666667,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
-      "rep": 3
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.7,
-      "unsafe_admission_rate": 0.5454545454545454,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.05,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
-      "rep": 3
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.55,
-      "unsafe_admission_rate": 0.6111111111111112,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.058333333333333334,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
-      "rep": 3
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.475,
-      "unsafe_admission_rate": 0.5789473684210527,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.08333333333333333,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 3
     },
     {
@@ -603,9 +482,7 @@
       "reject_rate": 0.03333333333333333,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 3
     },
     {
@@ -617,9 +494,7 @@
       "reject_rate": 0.041666666666666664,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 3
     },
     {
@@ -631,9 +506,7 @@
       "reject_rate": 0.09166666666666666,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 3
     },
     {
@@ -645,9 +518,7 @@
       "reject_rate": 0.0,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 3
     },
     {
@@ -659,9 +530,7 @@
       "reject_rate": 0.03333333333333333,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 3
     },
     {
@@ -673,9 +542,43 @@
       "reject_rate": 0.06666666666666667,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
+      "rep": 3
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.7,
+      "unsafe_admission_rate": 0.5454545454545454,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.05,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 0.5,
+      "rep": 3
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.55,
+      "unsafe_admission_rate": 0.6111111111111112,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.058333333333333334,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 1.0,
+      "rep": 3
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.475,
+      "unsafe_admission_rate": 0.5789473684210527,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.08333333333333333,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 3
     },
     {
@@ -683,13 +586,11 @@
       "safe_slo_goodput": 1.05,
       "unsafe_admission_rate": 0.25,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.015625,
       "reject_rate": 0.4666666666666667,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 4
     },
     {
@@ -697,13 +598,11 @@
       "safe_slo_goodput": 0.95,
       "unsafe_admission_rate": 0.47058823529411764,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.13432835820895522,
       "reject_rate": 0.44166666666666665,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 4
     },
     {
@@ -711,55 +610,11 @@
       "safe_slo_goodput": 0.775,
       "unsafe_admission_rate": 0.6538461538461539,
       "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
+      "guardrail_capacity_efficiency": 0.23880597014925373,
       "reject_rate": 0.44166666666666665,
       "bypass_count": 0,
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
-      "rep": 4
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.75,
-      "unsafe_admission_rate": 0.8,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.016666666666666666,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
-      "rep": 4
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.7,
-      "unsafe_admission_rate": 0.7,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.041666666666666664,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
-      "rep": 4
-    },
-    {
-      "n": 120,
-      "safe_slo_goodput": 2.575,
-      "unsafe_admission_rate": 0.6470588235294118,
-      "critical_tenant_slo_attainment": null,
-      "guardrail_capacity_efficiency": 1.0,
-      "reject_rate": 0.05,
-      "bypass_count": 0,
-      "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 4
     },
     {
@@ -771,9 +626,7 @@
       "reject_rate": 0.0,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 4
     },
     {
@@ -785,9 +638,7 @@
       "reject_rate": 0.025,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 4
     },
     {
@@ -799,9 +650,7 @@
       "reject_rate": 0.05,
       "bypass_count": 0,
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 4
     },
     {
@@ -813,9 +662,7 @@
       "reject_rate": 0.0,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 0.5,
-      "oracle_strong_rps": 0.2,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 0.5,
       "rep": 4
     },
     {
@@ -827,9 +674,7 @@
       "reject_rate": 0.058333333333333334,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.0,
-      "oracle_strong_rps": 0.4,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.0,
       "rep": 4
     },
     {
@@ -841,16 +686,50 @@
       "reject_rate": 0.1,
       "bypass_count": 0,
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.5,
-      "oracle_strong_rps": 0.6000000000000001,
-      "offered_rps": 3.01,
+      "strong_demand_frac_of_bg": 1.5,
+      "rep": 4
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.75,
+      "unsafe_admission_rate": 0.8,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.016666666666666666,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 0.5,
+      "rep": 4
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.7,
+      "unsafe_admission_rate": 0.7,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.041666666666666664,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 1.0,
+      "rep": 4
+    },
+    {
+      "n": 120,
+      "safe_slo_goodput": 2.575,
+      "unsafe_admission_rate": 0.6470588235294118,
+      "critical_tenant_slo_attainment": null,
+      "guardrail_capacity_efficiency": 1.0,
+      "reject_rate": 0.05,
+      "bypass_count": 0,
+      "policy": "risk_only",
+      "strong_demand_frac_of_bg": 1.5,
       "rep": 4
     }
   ],
   "pooled": [
     {
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 0.5,
+      "strong_demand_frac_of_bg": 0.5,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -875,15 +754,15 @@
       },
       "guardrail_capacity_efficiency": {
         "n": 5,
-        "mean": 1.0,
-        "median": 1.0,
-        "p25": 1.0,
-        "p75": 1.0
+        "mean": 0.09207157149037422,
+        "median": 0.10144927536231885,
+        "p25": 0.07462686567164178,
+        "p75": 0.1044776119402985
       }
     },
     {
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.0,
+      "strong_demand_frac_of_bg": 1.0,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -908,15 +787,15 @@
       },
       "guardrail_capacity_efficiency": {
         "n": 5,
-        "mean": 1.0,
-        "median": 1.0,
-        "p25": 1.0,
-        "p75": 1.0
+        "mean": 0.16194811370952725,
+        "median": 0.15151515151515152,
+        "p25": 0.13432835820895522,
+        "p75": 0.15625
       }
     },
     {
       "policy": "always_strong",
-      "strong_demand_frac_of_rg": 1.5,
+      "strong_demand_frac_of_bg": 1.5,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -941,15 +820,15 @@
       },
       "guardrail_capacity_efficiency": {
         "n": 5,
-        "mean": 1.0,
-        "median": 1.0,
-        "p25": 1.0,
-        "p75": 1.0
+        "mean": 0.20713070676031603,
+        "median": 0.208955223880597,
+        "p25": 0.203125,
+        "p75": 0.22058823529411764
       }
     },
     {
       "policy": "risk_only",
-      "strong_demand_frac_of_rg": 0.5,
+      "strong_demand_frac_of_bg": 0.5,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -982,7 +861,7 @@
     },
     {
       "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.0,
+      "strong_demand_frac_of_bg": 1.0,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -1015,7 +894,7 @@
     },
     {
       "policy": "risk_only",
-      "strong_demand_frac_of_rg": 1.5,
+      "strong_demand_frac_of_bg": 1.5,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -1048,7 +927,7 @@
     },
     {
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 0.5,
+      "strong_demand_frac_of_bg": 0.5,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -1081,7 +960,7 @@
     },
     {
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.0,
+      "strong_demand_frac_of_bg": 1.0,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -1114,7 +993,7 @@
     },
     {
       "policy": "load_aware",
-      "strong_demand_frac_of_rg": 1.5,
+      "strong_demand_frac_of_bg": 1.5,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -1147,7 +1026,7 @@
     },
     {
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 0.5,
+      "strong_demand_frac_of_bg": 0.5,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -1180,7 +1059,7 @@
     },
     {
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.0,
+      "strong_demand_frac_of_bg": 1.0,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,
@@ -1213,7 +1092,7 @@
     },
     {
       "policy": "proposed",
-      "strong_demand_frac_of_rg": 1.5,
+      "strong_demand_frac_of_bg": 1.5,
       "reps": 5,
       "safe_slo_goodput": {
         "n": 5,

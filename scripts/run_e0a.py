@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E0a: characterize Nova Micro G_light. Freeze tau. Do not retune after."""
+"""E0a: appendix Nova Micro G_light (not paper). Formal E0a is scripts/score_g_light.py."""
 
 from __future__ import annotations
 

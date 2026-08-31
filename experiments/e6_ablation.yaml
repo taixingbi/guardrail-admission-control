@@ -1,16 +1,16 @@
 name: e6_ablation
 experiment: E6
 mode: open_loop
-reuse_trace: e3_proposed_240_360s_1.5Rg
+reuse_trace: e3_proposed_240_360s_1.5Bg
 r_gateway_rps: 3.01
-rg_rps: 0.4
+bg_rps: 0.4
 duration_s: 120
 variants:
   - {id: full, use_tenant: true, use_deadline: true, use_early_reject: true, overflow: reject}
   - {id: no_tenant, use_tenant: false, use_deadline: true, use_early_reject: true, overflow: reject}
   - {id: no_deadline, use_tenant: true, use_deadline: false, use_early_reject: true, overflow: reject}
   - {id: no_early_reject, use_tenant: true, use_deadline: true, use_early_reject: false, overflow: queue}
-command: python scripts/run_e6.py
+command: python3 scripts/run_e6.py
 output: results/replay/e6/
 reps: 5
 note: Frozen Function URL q. 5 reps. Replays E3 proposed overload. Full vs −NoEarlyReject is the systems headline.

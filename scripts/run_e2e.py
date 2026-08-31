@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Live end-to-end sanity: Function URL MiniLM + scheduler + ApplyGuardrail + Maverick.
 
-Not a substitute for E1–E6 (those replay frozen q). One Proposed cell at 1.0 Rg
-proves the architecture and reports MiniLM / e2e P95 overhead.
+Not a substitute for E1–E6 (those replay frozen q). One Proposed cell at 1.0 Bg.
+replay_q is the paper-comparable path (frozen q). live_path puts Function URL MiniLM
+on every request (~500 ms P50 from E0a) and is not the 600 ms SLO architecture number.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from gasc.report import aggregate
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import RunRecord, TenantPolicy
 
-RG = 0.4
+BG = 0.4
 R_GATEWAY = 3.01
 DURATION_S = 40.0
 FRAC = 1.0
@@ -184,14 +185,14 @@ async def _cell(*, client, guardrail_id, version, live_q, live_g_light, prompts_
         queue_max=16,
         reserved_share={},
         overflow_mode="reject",
-        rg_rps=RG,
+        bg_rps=BG,
         burst=1,
     )
     llm_sem = asyncio.Semaphore(C_STAR)
     api_lock = asyncio.Lock()
     rng = random.Random(80 if live_g_light else 70)
     interval = 1.0 / R_GATEWAY
-    p_unsafe = (FRAC * RG) / R_GATEWAY
+    p_unsafe = (FRAC * BG) / R_GATEWAY
     n_slots = int(DURATION_S / interval)
     planned = [rng.choice(prompts_unsafe if rng.random() < p_unsafe else prompts_safe) for _ in range(n_slots)]
     t_start = time.perf_counter()
@@ -247,13 +248,13 @@ async def _run() -> dict:
         cells.append(cell["metrics"])
         (out / f"{name}.jsonl").write_text("\n".join(json.dumps(r) for r in cell["records"]) + "\n")
     return {
-        "rg": RG,
+        "bg": BG,
         "r_gateway": R_GATEWAY,
         "duration_s": DURATION_S,
         "frac": FRAC,
         "c_star": C_STAR,
         "t_llm_ms": T_LLM_MS,
-        "note": "Scout only. Does not retune tau, Rg, or Tenant A SLO.",
+        "note": "Scout only. Does not retune tau, Bg, or Tenant A SLO. live_path is wiring, not the SLO path.",
         "cells": cells,
     }
 
@@ -263,10 +264,12 @@ def main() -> int:
     out = replay_dir("e2e")
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
-        "# E2e Maverick scout (Proposed, 1.0 Rg, 40s)",
+        "# E2e sanity (Proposed, 1.0 Bg, 40s)",
         "",
         "Tenant A SLO 600 ms unchanged. Maverick C*=2. t_llm_ms=250 (E0c TTFT P50).",
-        "Does not retune τ or Rg. E1–E6 stay Maverick-off.",
+        "Does not retune τ or Bg. E1–E6 stay Maverick-off.",
+        "replay_q uses frozen Function URL q (paper path). live_path scores every request via Function URL;",
+        "E0a MiniLM P50 is ~524 ms, so live_path cannot represent the 600 ms SLO architecture.",
         "",
         "| cell | G_safe@600 | G_safe@800 | UAR | e2e P50 | e2e P95 | TTFT P95 | admitted SLO |",
         "| --- | --- | --- | --- | --- | --- | --- | --- |",

@@ -6,7 +6,7 @@ skip_llm: true
 variants: [S0, S1, S2, S3]
 policy: proposed
 fail_closed: true
-rg_rps: 0.4
+bg_rps: 0.4
 strong_inflight: 2
 tenants:
   - {tenant_id: A, tau: 0.75, slo_ms: 600, reserved_share: 0.0}
