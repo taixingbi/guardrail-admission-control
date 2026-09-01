@@ -11,6 +11,6 @@ variants:
   - {id: no_deadline, use_tenant: true, use_deadline: false, use_early_reject: true, overflow: reject}
   - {id: no_early_reject, use_tenant: true, use_deadline: true, use_early_reject: false, overflow: queue}
 command: python3 scripts/run_e6.py
-output: results/replay/e6/
+output: results/e6/
 reps: 5
 note: Frozen Function URL q. 5 reps. Replays E3 proposed overload. Full vs −NoEarlyReject is the systems headline.

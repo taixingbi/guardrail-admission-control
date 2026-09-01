@@ -1,31 +1,22 @@
-# E1 static safety-load (scout)
+# E1 static safety-load (frozen minilm-l12-h384 q, 5 reps)
 
-`R_gateway=3.01` rps, `Rg=0.4` rps, 40s/cell, 120 requests/cell. Tenant A only. Injected oracle \(q\) (S0/S1=0, S2/S3=1). Live ApplyGuardrail, no Maverick.
+R_gateway=3.01 rps, Bg=0.4 rps (gateway safety budget, not provider capacity), 40s/cell × 5 reps. q=frozen_g_light. Live ApplyGuardrail, no Maverick.
+Paper cells are median [p25, p75]. Do not retune τ.
+UAR is MiniLM false negatives (q below τ, so scheduler never requires strong), not fail-open.
+Efficiency = risk-required strong occupancy / all strong occupancy (Always-Strong waste is q < τ).
+Proposed guarantees policy compliance conditional on q, not GT safety.
 
-Always-Strong offered demand is **always** \(R_{gateway}=7.5 R_g\). B2/B3/B4 offered strong demand follows the S2/S3 mix.
-
-| policy | demand | \(G_{safe}\) | UAR | reject | oracle efficiency |
+| policy | demand | G_safe | UAR | reject | efficiency |
 | --- | --- | --- | --- | --- | --- |
-| always_strong | 0.50 \(R_g\) | 0.575 | 0.000 | 0.767 | 0.08 |
-| always_strong | 1.00 \(R_g\) | 0.650 | 0.000 | 0.783 | 0.11 |
-| always_strong | 1.50 \(R_g\) | 0.525 | 0.045 | 0.792 | 0.15 |
-| risk_only | 0.50 \(R_g\) | 2.900 | 0.250 | 0.025 | 1.00 |
-| risk_only | 1.00 \(R_g\) | 2.575 | 0.000 | 0.142 | 1.00 |
-| risk_only | 1.50 \(R_g\) | 2.350 | 0.000 | 0.217 | 1.00 |
-| load_aware | 0.50 \(R_g\) | 2.850 | 0.000 | 0.050 | 1.00 |
-| load_aware | 1.00 \(R_g\) | 2.600 | 0.062 | 0.125 | 1.00 |
-| load_aware | 1.50 \(R_g\) | 2.550 | 0.056 | 0.142 | 1.00 |
-| proposed | 0.50 \(R_g\) | 2.875 | 0.200 | 0.033 | 1.00 |
-| proposed | 1.00 \(R_g\) | 2.450 | 0.045 | 0.175 | 1.00 |
-| proposed | 1.50 \(R_g\) | 2.525 | 0.000 | 0.158 | 1.00 |
-
-Oracle efficiency = ApplyGuardrail calls on GT-unsafe / all ApplyGuardrail calls.
-
-What this scout supports:
-
-- Always-Strong collapses \(G_{safe}\) (~0.5 vs ~2.5) because it spends the 0.4 rps budget on S0/S1.
-- B2/B3/B4 stay near offered goodput and use every strong slot on oracle-unsafe traffic.
-- Residual UAR is mostly ApplyGuardrail `NONE` on weak S2 templates (cookies / photosynthesis), not scheduler bypass (`bypass_count=0`).
-- Tenant B SLO is not in this experiment (E2).
-
-Full 6-point sweep (`0.25…1.50`) and live G_light are not in this scout.
+| always_strong | 0.50 Bg | 0.925 [0.900, 1.025] | 0.571 [0.500, 0.800] | 0.442 [0.442, 0.442] | 0.10 [0.07, 0.10] |
+| always_strong | 1.00 Bg | 0.900 [0.875, 0.950] | 0.471 [0.438, 0.692] | 0.442 [0.433, 0.450] | 0.15 [0.13, 0.16] |
+| always_strong | 1.50 Bg | 0.800 [0.775, 0.875] | 0.550 [0.429, 0.560] | 0.442 [0.442, 0.442] | 0.21 [0.20, 0.22] |
+| risk_only | 0.50 Bg | 2.750 [2.700, 2.800] | 0.545 [0.500, 0.750] | 0.033 [0.033, 0.033] | 1.00 [1.00, 1.00] |
+| risk_only | 1.00 Bg | 2.575 [2.550, 2.600] | 0.700 [0.611, 0.786] | 0.050 [0.042, 0.058] | 1.00 [1.00, 1.00] |
+| risk_only | 1.50 Bg | 2.400 [2.400, 2.475] | 0.500 [0.500, 0.579] | 0.108 [0.083, 0.125] | 1.00 [1.00, 1.00] |
+| load_aware | 0.50 Bg | 2.750 [2.750, 2.825] | 1.000 [0.750, 1.000] | 0.017 [0.008, 0.025] | 1.00 [1.00, 1.00] |
+| load_aware | 1.00 Bg | 2.500 [2.475, 2.500] | 0.778 [0.750, 0.800] | 0.042 [0.042, 0.042] | 1.00 [1.00, 1.00] |
+| load_aware | 1.50 Bg | 2.300 [2.300, 2.400] | 0.654 [0.593, 0.682] | 0.092 [0.067, 0.092] | 1.00 [1.00, 1.00] |
+| proposed | 0.50 Bg | 2.725 [2.700, 2.825] | 0.900 [0.818, 1.000] | 0.017 [0.000, 0.025] | 1.00 [1.00, 1.00] |
+| proposed | 1.00 Bg | 2.550 [2.500, 2.675] | 0.667 [0.667, 0.700] | 0.050 [0.033, 0.058] | 1.00 [1.00, 1.00] |
+| proposed | 1.50 Bg | 2.400 [2.400, 2.400] | 0.545 [0.542, 0.577] | 0.100 [0.092, 0.100] | 1.00 [1.00, 1.00] |

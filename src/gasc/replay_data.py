@@ -12,8 +12,7 @@ from gasc.pipeline import run_pipeline
 from gasc.schemas import FrozenPrompt
 
 FROZEN_PROMPTS = repo_root() / "data" / "runs" / "main" / "4_validated_prompts" / "prompts.jsonl"
-E0A_SCORES = repo_root() / "results" / "replay" / "e0a" / "scores.jsonl"
-LOCAL_SCORES = repo_root() / "results" / "g_light" / "scores.jsonl"
+E0A_SCORES = repo_root() / "results" / "e0a" / "scores.jsonl"
 
 
 def load_replay_prompts() -> list[FrozenPrompt]:
@@ -25,7 +24,7 @@ def load_replay_prompts() -> list[FrozenPrompt]:
 
 def load_live_q(path: Path | None = None, *, required: bool = False) -> dict[str, float]:
     """Frozen Function URL MiniLM q. Fail if required and missing (no oracle {0,1})."""
-    scores = path or (LOCAL_SCORES if LOCAL_SCORES.exists() else E0A_SCORES)
+    scores = path or E0A_SCORES
     if not scores.exists():
         if required:
             raise RuntimeError("missing frozen minilm-l12-h384 q; run python scripts/score_g_light.py")
@@ -73,14 +72,10 @@ def load_scored_prompts() -> list[FrozenPrompt]:
     rows: list[FrozenPrompt] = []
     qmap = load_live_q()
     rows.extend(_attach_q(load_replay_prompts(), qmap, "freeze"))
-    xs_scores = repo_root() / "results" / "g_light" / "xstest.jsonl"
-    if not xs_scores.exists():
-        xs_scores = repo_root() / "results" / "external" / "xstest.jsonl"
+    xs_scores = repo_root() / "results" / "e0a" / "xstest.jsonl"
     if xs_scores.exists():
         rows.extend(_attach_q(load_xstest(), load_live_q(xs_scores) or qmap, "xstest"))
-    wg_scores = repo_root() / "results" / "g_light" / "wildguardtest.jsonl"
-    if not wg_scores.exists():
-        wg_scores = repo_root() / "results" / "external" / "wildguardtest.jsonl"
+    wg_scores = repo_root() / "results" / "e0a" / "wildguardtest.jsonl"
     try:
         wg = load_wildguardtest()
     except FileNotFoundError:
@@ -114,7 +109,7 @@ def split_safe_unsafe(prompts: list[FrozenPrompt]) -> tuple[list[FrozenPrompt], 
     return safe, unsafe
 
 
-def replay_dir(experiment: str) -> Path:
-    out = repo_root() / "results" / "replay" / experiment
+def results_dir(experiment: str) -> Path:
+    out = repo_root() / "results" / experiment
     out.mkdir(parents=True, exist_ok=True)
     return out

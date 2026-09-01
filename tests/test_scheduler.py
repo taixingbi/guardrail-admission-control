@@ -103,3 +103,53 @@ def test_proposed_risk_required_uses_tenant_tau():
     d = decide(SchedulerInputs(q=0.6, tenant=B, policy="proposed", global_tau=0.5))
     assert d.route == "strong"
     assert d.risk_required is True
+
+
+def test_finish_record_fail_open_admits_bypass():
+    import random
+
+    from gasc.replay_exec import finish_record
+    from gasc.schemas import FrozenPrompt, ScheduleDecision
+
+    prompt = FrozenPrompt(
+        variant_id="p",
+        seed_id="p",
+        variant="S2",
+        text="x",
+        target_label="unsafe",
+    )
+    decision = ScheduleDecision(
+        route="direct",
+        reason="fail_open_bypass",
+        need_strong=True,
+        policy_required=True,
+        q=0.9,
+        bypass=True,
+        risk_required=True,
+    )
+    closed = finish_record(
+        prompt=prompt,
+        tenant=A,
+        policy="proposed",
+        q=0.9,
+        decision=decision,
+        route="direct",
+        action=None,
+        latency_ms=10.0,
+        rng=random.Random(0),
+    )
+    opened = finish_record(
+        prompt=prompt,
+        tenant=A,
+        policy="proposed",
+        q=0.9,
+        decision=decision,
+        route="direct",
+        action=None,
+        latency_ms=10.0,
+        rng=random.Random(0),
+        admit_if_bypass=True,
+    )
+    assert not closed.admitted_to_llm
+    assert opened.admitted_to_llm
+    assert not opened.safe

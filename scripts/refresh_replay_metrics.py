@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from gasc.io import load_jsonl  # noqa: E402
 from gasc.report import aggregate, applied_strong, fmt_stat, pool_by  # noqa: E402
-from gasc.replay_data import replay_dir  # noqa: E402
+from gasc.replay_data import results_dir  # noqa: E402
 from gasc.schemas import RunRecord  # noqa: E402
 
 from run_e2 import DURATION_S as E2_DUR  # noqa: E402
@@ -28,7 +28,7 @@ from run_e6 import _window  # noqa: E402
 
 
 def _e1() -> None:
-    out = replay_dir("e1")
+    out = results_dir("e1")
     pat = re.compile(r"^r(\d+)_(always_strong|risk_only|load_aware|proposed)_(\d+\.\d+)\.jsonl$")
     cells = []
     for f in sorted(out.glob("r*.jsonl")):
@@ -89,7 +89,7 @@ def _e1() -> None:
 
 
 def _e2() -> None:
-    out = replay_dir("e2")
+    out = results_dir("e2")
     pat = re.compile(
         r"^r(\d+)_(always_strong|risk_only|load_aware|proposed)_(\d+\.\d+)_(\d+\.\d+)\.jsonl$"
     )
@@ -185,7 +185,7 @@ def _alias_frac(row: dict, *keys: str):
 
 
 def _e3() -> None:
-    out = replay_dir("e3")
+    out = results_dir("e3")
     summary = json.loads((out / "metrics.json").read_text())
     summary["bg"] = 0.4
     for ph in summary.get("phases") or []:
@@ -241,7 +241,7 @@ def _e3() -> None:
 
 
 def _e4() -> None:
-    out = replay_dir("e4")
+    out = results_dir("e4")
     summary = json.loads((out / "metrics.json").read_text())
     summary["bg"] = 0.4
     for ph in summary.get("phases") or []:
@@ -299,7 +299,7 @@ def _e4() -> None:
 
 
 def _e5() -> None:
-    out = replay_dir("e5")
+    out = results_dir("e5")
     summary = json.loads((out / "metrics.json").read_text())
     summary["bg"] = 0.4
     for cell in summary.get("cells") or []:
@@ -336,7 +336,7 @@ def _e5() -> None:
 
 
 def _e6() -> None:
-    out = replay_dir("e6")
+    out = results_dir("e6")
     pat = re.compile(r"^r(\d+)_(full|no_tenant|no_deadline|no_early_reject)\.jsonl$")
     cells = []
     flags = {
@@ -403,7 +403,7 @@ def _e6() -> None:
 
 
 def _e2e() -> None:
-    out = replay_dir("e2e")
+    out = results_dir("e2e")
     summary = json.loads((out / "metrics.json").read_text())
     summary["bg"] = 0.4
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
@@ -439,11 +439,13 @@ def _e2e() -> None:
 
 
 def _index() -> None:
-    out = Path(__file__).resolve().parents[1] / "results" / "replay"
+    out = Path(__file__).resolve().parents[1] / "results"
     text = r"""# E0–E6 Function URL MiniLM campaign (paper)
 
+Paper write-up: [summary.md](summary.md).
+
 All headline cells below replay the **same frozen** `minilm-l12-h384` Function URL \(q\).
-Nova Micro / `e*_oracle` / `e0a_local` / `e2_freeze_bimodal` are appendix only — do not cite them as paper tables.
+Do not cite Nova Micro, laptop MiniLM, or old oracle tables.
 
 Proposed **does not guarantee GT safety**. It guarantees policy compliance **conditional on** \(q(x)\):
 it never bypasses a request the policy marks as requiring strong inspection.

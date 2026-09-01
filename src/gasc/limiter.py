@@ -23,7 +23,6 @@ class StrongLimiter:
         *,
         reserved_share: dict[str, float] | None = None,
         overflow_mode: str = "reject",
-        rg_rps: float | None = None,
         bg_rps: float | None = None,
         burst: int = 1,
     ) -> None:
@@ -34,8 +33,7 @@ class StrongLimiter:
             raise ValueError(f"unknown overflow_mode: {overflow_mode}")
         self._overflow_mode = mode
         self._reserved_share = dict(reserved_share or {})
-        rate = bg_rps if bg_rps is not None else rg_rps
-        self._rg_rps = float(rate) if rate and rate > 0 else None
+        self._bg_rps = float(bg_rps) if bg_rps and bg_rps > 0 else None
         self._burst = max(int(burst), 1)
         self._shared_tokens = float(self._burst)
         self._reserved_tokens: dict[str, float] = {
@@ -63,19 +61,19 @@ class StrongLimiter:
         return self._limit
 
     def estimated_wait_ms(self, tenant: str | None = None) -> float:
-        if not self._rg_rps:
+        if not self._bg_rps:
             return 0.0
         if tenant:
             self._refill()
             if self._rate_ok(tenant):
                 return 0.0
             share = max(0.0, float(self._reserved_share.get(tenant, 0.0) or 0.0))
-            rate = self._rg_rps * share if share > 0 else self._rg_rps
+            rate = self._bg_rps * share if share > 0 else self._bg_rps
             if rate <= 0:
-                return (self._waiting / self._rg_rps) * 1000.0
+                return (self._waiting / self._bg_rps) * 1000.0
             tokens = self._reserved_tokens.get(tenant, 0.0)
             return max(0.0, (1.0 - tokens) / rate) * 1000.0
-        return (self._waiting / self._rg_rps) * 1000.0
+        return (self._waiting / self._bg_rps) * 1000.0
 
     def strong_available(self, tenant: str) -> bool:
         self._present.add(tenant)
@@ -98,20 +96,20 @@ class StrongLimiter:
         return used
 
     def _refill(self) -> None:
-        if self._rg_rps is None:
+        if self._bg_rps is None:
             return
         now = time.monotonic()
         dt = now - self._last_refill
         self._last_refill = now
         reserved_frac = sum(max(0.0, float(f or 0)) for f in self._reserved_share.values())
-        shared_rate = self._rg_rps * max(0.0, 1.0 - reserved_frac)
+        shared_rate = self._bg_rps * max(0.0, 1.0 - reserved_frac)
         self._shared_tokens = min(self._burst, self._shared_tokens + dt * shared_rate)
         for tid, frac in self._reserved_share.items():
             f = max(0.0, float(frac or 0))
             if f <= 0:
                 continue
             self._reserved_tokens[tid] = min(
-                self._burst, self._reserved_tokens.get(tid, 0.0) + dt * self._rg_rps * f
+                self._burst, self._reserved_tokens.get(tid, 0.0) + dt * self._bg_rps * f
             )
 
     def _idle(self, tenant: str) -> bool:
@@ -122,7 +120,7 @@ class StrongLimiter:
         return self._tenant_waiting[tenant] == 0 and self._tenant_inflight[tenant] == 0
 
     def _rate_ok(self, tenant: str) -> bool:
-        if self._rg_rps is None:
+        if self._bg_rps is None:
             return True
         self._refill()
         if self._reserved_tokens.get(tenant, 0.0) >= 1.0:
@@ -137,7 +135,7 @@ class StrongLimiter:
         )
 
     def _take_rate(self, tenant: str) -> None:
-        if self._rg_rps is None:
+        if self._bg_rps is None:
             return
         if self._reserved_tokens.get(tenant, 0.0) >= 1.0:
             self._reserved_tokens[tenant] -= 1.0
@@ -187,7 +185,7 @@ class StrongLimiter:
                     if self._can_admit(tenant):
                         self._take(tenant)
                         return AcquireResult(ok=True, reason="admitted", waited_s=loop.time() - t0)
-                    token_wait = 0.05 if self._rg_rps else None
+                    token_wait = 0.05 if self._bg_rps else None
                     if timeout_s is None and token_wait is None:
                         await self._cond.wait()
                         continue

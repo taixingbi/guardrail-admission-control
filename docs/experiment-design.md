@@ -138,9 +138,9 @@ No E7/E8. Architecture is frozen. Paper G_light is Function URL `minilm-l12-h384
 | E1–E6 | **Done.** Same frozen Function URL \(q\), 5 reps, median [p25, p75]. No Function URL on the replay hot path. |
 | E2 | Paper-level tenant result (split-band 220; Proposed A 100% direct / B 100% strong; B coverage 65.5%/40.3% vs load-aware 29.9%/27.1% at 90:10 / 70:30). |
 | E4 | Phenomenon only (exhaustion at constant RPS). Do not claim Proposed dominates. |
-| E5 / E6 | Mechanism holds on MiniLM \(q\). Cite these MiniLM numbers, **not** the old Nova `e0a_live` / `*_oracle` UAR=0 tables. |
+| E5 / E6 | Mechanism holds on MiniLM \(q\). Cite these MiniLM numbers, not old Nova UAR=0 tables. |
 | Live e2e | `replay_q` (P50 ~584 ms) is paper-comparable. `live_path` (P50 6.3s / P95 21s) puts Function URL MiniLM on every request and is **not** the 600 ms SLO architecture number. |
-| Appendix | `e*_oracle`, `e0a_local`, Nova Micro (`GASC_GLIGHT_BACKEND=nova`). Do not mix with paper tables. |
+| Appendix | Nova Micro (`GASC_GLIGHT_BACKEND=nova`) is opt-in only. Oracle / laptop MiniLM / old scout folders were removed from `results/`. Do not mix with paper tables. |
 
 ```
 python3 scripts/run_campaign.py          # already run; do not retune

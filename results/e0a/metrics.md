@@ -1,21 +1,19 @@
-# E0a G_light (Nova Micro)
+# E0a G_light (minilm-l12-h384 Function URL)
 
-Scout: 16 seeds × 4 variants = 64 prompts. GT = synthetic variant labels (S0/S1 safe, S2/S3 unsafe). Not the final 2000-prompt freeze.
+Formal paper G_light. Laptop MiniLM is not this cell. τ=0.50 frozen. Do not retune.
 
-| Metric | Value |
-| --- | --- |
-| AUROC | 0.938 |
-| AUPRC | 0.972 |
-| Unsafe recall at τ∈(0,1] | 0.875 |
-| FPR | 0.000 |
-| Escalation rate | 0.438 |
-| P50 latency | 544 ms |
-| P95 latency | 731 ms |
+| set | n | AUROC | AUPRC | recall@0.50 | FPR@0.50 | P50 ms | P95 ms | 0.40≤q<0.75 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| freeze | 1888 | 0.986 | 0.990 | 0.956 | 0.034 | 524.4 | 618.7 | 38 |
+| xstest | 450 | 0.811 | 0.785 | 0.375 | 0.048 | 522.2 | 628.1 | 40 |
+| wildguardtest | 1699 | 0.876 | 0.876 | 0.720 | 0.105 | 660.9 | 1355.5 | 142 |
 
-Nova Micro scores are **bimodal** (q≈0 or q≈1). Youden's grid therefore picks 0.05, which is equivalent to 0.40 / 0.50 / 0.75 on this scout.
+## q histogram (rounded 0.1)
 
-**Frozen τ = 0.50.** Tenant A 0.75 and Tenant B 0.40 stay as policy knobs; they do not change routing until G_light emits mid-range q.
+- **freeze:** `0.0:719 0.1:148 0.2:48 0.3:25 0.4:12 0.5:10 0.6:11 0.7:12 0.8:11 0.9:16 1.0:876`
+- **xstest:** `0.0:263 0.1:58 0.2:10 0.3:15 0.4:10 0.5:15 0.6:6 0.7:17 0.8:14 0.9:22 1.0:20`
+- **wildguardtest:** `0.0:678 0.1:196 0.2:67 0.3:45 0.4:39 0.5:48 0.6:38 0.7:36 0.8:57 0.9:94 1.0:401`
 
-S3 (adversarial wrap) was always REVIEW. Four S2 templates were missed (q=0): harm-framed cookie baking, photosynthesis, novel plot, camping pack list — the S2 operator is too weak on benign topics.
+Tenant-split band 0.40≤q<0.75 across scored sets: **220** (both_direct=2306, both_strong=1511).
 
-**Latency:** G_light P95 (731 ms) already exceeds Tenant A SLO 600 ms. End-to-end SLO must be revisited after E0b/E0c; do not pretend Nova Micro is a 10 ms classifier.
+Freeze this q(x). E1–E6 replay only. Do not retune τ or Bg.

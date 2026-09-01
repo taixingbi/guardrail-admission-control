@@ -13,6 +13,6 @@ phases:
   - {until_s: 300, suspicious_frac: 0.50}
   - {until_s: 420, suspicious_frac: 0.05}
 command: python3 scripts/run_e4.py
-output: results/replay/e4/
+output: results/e4/
 reps: 5
 note: Frozen Function URL q. 5 reps. Constant RPS. Phenomenon experiment — do not claim Proposed dominates.

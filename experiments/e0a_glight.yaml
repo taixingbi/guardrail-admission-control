@@ -5,4 +5,4 @@ seed_limit: 16
 command: python scripts/score_g_light.py
 metrics: [auroc, auprc, unsafe_recall, fpr, p50_ms, p95_ms, n_tenant_split]
 note: Formal E0a. Function URL minilm-l12-h384 on freeze+XSTest+WildGuardTest. Freeze q. Do not retune τ.
-output: results/g_light/
+output: results/e0a/

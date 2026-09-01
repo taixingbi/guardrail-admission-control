@@ -6,6 +6,6 @@ g_light: minilm-l12-h384
 sets:
   - {id: xstest, labels: native, file: data/external/xstest_prompts.csv}
   - {id: wildguardtest, labels: native, file: data/external/wildguardtest.jsonl}
-command: python scripts/run_external.py
-output: results/external/
+command: python3 scripts/score_g_light.py
+output: results/e0a/
 note: Do not retune tau. Skip WildGuardTest if the jsonl is absent (HF gated).

@@ -1,17 +1,13 @@
-# E5 fail-open vs fail-closed
+# E5 fail-open vs fail-closed (frozen minilm-l12-h384 q, 5 reps)
 
-Proposed only. R_gateway=3.01, Rg=0.4, 60s/cell.
-Fail-open disables deadline so exhaustion can bypass. Fail-closed keeps frozen B4 (deadline + safety_floor).
+Proposed only. R_gateway=3.01, Bg=0.4, 60s/cell × 5 reps. q=frozen_g_light.
+Fail-open disables deadline so exhaustion can bypass. Fail-closed keeps frozen B4.
+Paper cells are median [p25, p75]. MiniLM is a screener, not the authority. Do not retune τ.
+Fail-open raises UAR without raising Safe Goodput. Residual fail-closed UAR is MiniLM FN, not bypass.
 
-| mode | demand | G_safe | UAR | reject | bypass | bypass/need | checked |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| fail-closed | 1.5 Rg | 2.317 | 0.000 | 0.228 | 0 | 0.00 | 16 |
-| fail-closed | 2.0 Rg | 2.233 | 0.022 | 0.250 | 0 | 0.00 | 19 |
-| fail-open | 1.5 Rg | 2.467 | 0.438 | 0.100 | 14 | 0.44 | 18 |
-| fail-open | 2.0 Rg | 2.100 | 0.704 | 0.089 | 36 | 0.67 | 18 |
-
-## Read
-
-- Fail-closed never bypasses. UAR is 0 at 1.5 \(R_g\) and 2.2% at 2.0 \(R_g\) (ApplyGuardrail `NONE` on weak S2).
-- Fail-open bypasses 44% / 67% of required-strong requests. Every bypass is GT-unsafe, so UAR is 44% / 70%.
-- \(G_{safe}\) does not improve under fail-open (bypass is non-compliant, so it is not goodput). The open path only admits unsafe traffic the closed path would reject.
+| mode | demand | G_safe | UAR | reject | bypass/need |
+| --- | --- | --- | --- | --- | --- |
+| proposed_fail_closed | 1.5 Bg | 2.333 [2.200, 2.367] | 0.436 [0.429, 0.457] | 0.128 [0.122, 0.161] | 0.00 [0.00, 0.00] |
+| proposed_fail_closed | 2.0 Bg | 2.200 [2.200, 2.267] | 0.458 [0.370, 0.476] | 0.144 [0.139, 0.167] | 0.00 [0.00, 0.00] |
+| proposed_fail_open | 1.5 Bg | 2.400 [2.367, 2.433] | 1.000 [1.000, 1.000] | 0.000 [0.000, 0.000] | 0.57 [0.56, 0.58] |
+| proposed_fail_open | 2.0 Bg | 2.267 [2.250, 2.300] | 1.000 [1.000, 1.000] | 0.000 [0.000, 0.000] | 0.62 [0.61, 0.64] |

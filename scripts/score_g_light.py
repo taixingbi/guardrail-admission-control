@@ -11,7 +11,7 @@ from pathlib import Path
 
 from gasc.eval_binary import at_threshold, average_precision, percentile, roc_auc
 from gasc.external import load_wildguardtest, load_xstest
-from gasc.replay_data import load_replay_prompts, replay_dir, split_q_bands
+from gasc.replay_data import load_replay_prompts, results_dir, split_q_bands
 from gasc.schemas import FrozenPrompt
 
 
@@ -92,9 +92,7 @@ def main() -> int:
     from dotenv import load_dotenv
 
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
-    out = replay_dir("e0a")
-    gdir = Path(__file__).resolve().parents[1] / "results" / "g_light"
-    gdir.mkdir(parents=True, exist_ok=True)
+    out = results_dir("e0a")
     freeze = load_replay_prompts()
     print(
         f"E0a Function URL minilm-l12-h384 freeze n={len(freeze)} (resume ok)",
@@ -109,22 +107,17 @@ def main() -> int:
     cells = []
     all_rows = []
     for name, prompts in sets:
-        path = gdir / f"{name}.jsonl"
+        path = out / ("scores.jsonl" if name == "freeze" else f"{name}.jsonl")
         rows = _score_set(name, prompts, path)
         path.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
         all_rows.extend(rows)
         cells.append(_eval(name, rows))
-    (gdir / "scores.jsonl").write_text("\n".join(json.dumps(r) for r in all_rows) + "\n")
-    (out / "scores.jsonl").write_text(
-        "\n".join(json.dumps(r) for r in all_rows if r["source"] == "freeze") + "\n"
-    )
     summary = {
         "backend": "minilm-l12-h384",
         "q_frozen": True,
         "tau_frozen": 0.50,
         "cells": cells,
     }
-    (gdir / "metrics.json").write_text(json.dumps(summary, indent=2))
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
         "# E0a G_light (minilm-l12-h384 Function URL)",
@@ -165,10 +158,9 @@ def main() -> int:
         "Freeze this q(x). E1–E6 replay only. Do not retune τ or Bg.",
     ]
     md = "\n".join(lines) + "\n"
-    (gdir / "metrics.md").write_text(md)
     (out / "metrics.md").write_text(md)
     print(json.dumps(cells, indent=2), flush=True)
-    print(f"wrote {gdir} and {out}", flush=True)
+    print(f"wrote {out}", flush=True)
     return 0
 
 

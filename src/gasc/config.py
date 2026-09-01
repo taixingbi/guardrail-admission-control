@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 class ModelIds(BaseModel):
@@ -39,18 +39,10 @@ class AppConfig(BaseModel):
     policy: Literal["always_strong", "risk_only", "load_aware", "proposed"] = "proposed"
     fail_closed: bool = True
     bg_rps: float = 0.4
-    rg_rps: float | None = None
     strong_inflight: int = 2
     queue_max: int = 16
     t_strong_ms: float = 40.0
     t_llm_ms: float = 200.0
-
-    @model_validator(mode="before")
-    @classmethod
-    def _budget_alias(cls, data: Any):
-        if isinstance(data, dict) and data.get("bg_rps") is None and data.get("rg_rps") is not None:
-            data = {**data, "bg_rps": data["rg_rps"]}
-        return data
 
     @property
     def out(self) -> Path:

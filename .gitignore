@@ -17,6 +17,7 @@ data/external/*.jsonl
 data/external/.cache/
 data/external/test/
 data/external/train/
+# Experiment artifacts. Paper: e0a–e6, e2e, e0b, e0c, freeze.
 results/*
 !results/.gitkeep
 models/g_light/

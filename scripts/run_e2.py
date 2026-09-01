@@ -10,40 +10,34 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import random
 import time
 from collections import defaultdict
-from pathlib import Path
 
-from dotenv import load_dotenv
-
-from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
-from gasc.limiter import StrongLimiter
-from gasc.replay_data import load_scored_prompts, q_for, replay_dir, split_q_bands, split_safe_unsafe
+from gasc.io import write_jsonl
+from gasc.replay_data import load_scored_prompts, q_for, results_dir, split_q_bands, split_safe_unsafe
 from gasc.report import aggregate, applied_strong, fmt_stat, stat_pack
-from gasc.scheduler import SchedulerInputs, decide, policy_compliant
+from gasc.replay_exec import (
+    BG,
+    POLICY_ORDER,
+    R_GATEWAY,
+    TENANT_A,
+    TENANT_B,
+    bedrock_session,
+    make_limiter,
+    overflow_mode,
+    run_scheduled,
+)
 from gasc.schemas import RunRecord, TenantPolicy
 
-BG = 0.4
-R_GATEWAY = 3.01
 STRONG_FRAC = 1.3
 DURATION_S = 120.0
 REPS = 5
 MID_Q_FRAC = 0.25
 B_UNSAFE_P = 0.50
 MIXES = ((0.90, 0.10), (0.70, 0.30), (0.50, 0.50), (0.30, 0.70))
-POLICIES = ("always_strong", "risk_only", "load_aware", "proposed")
-TENANTS = {
-    "A": TenantPolicy(tenant_id="A", tau=0.75, slo_ms=600, reserved_share=0.0),
-    "B": TenantPolicy(tenant_id="B", tau=0.40, slo_ms=800, reserved_share=0.4),
-}
-T_STRONG_MS = 215.0
-QUEUE_TIMEOUT_S = 2.0
-
-
-def _overflow(policy: str) -> str:
-    return "queue" if policy in {"always_strong", "load_aware"} else "reject"
+POLICIES = POLICY_ORDER
+TENANTS = {"A": TENANT_A, "B": TENANT_B}
 
 
 def _reserved(policy: str) -> dict[str, float]:
@@ -68,76 +62,19 @@ def _pick(rng: random.Random, tenant: TenantPolicy, safe, unsafe, mid, p_unsafe)
 
 
 async def _one(*, client, guardrail_id, version, limiter, policy, tenant, prompt, rng, api_lock) -> RunRecord:
-    t0 = time.perf_counter()
     q = q_for(prompt)
-    available = limiter.strong_available(tenant.tenant_id)
-    if policy in {"always_strong", "load_aware"}:
-        available = True
-    decision = decide(
-        SchedulerInputs(
-            q=q,
-            tenant=tenant,
-            policy=policy,  # type: ignore[arg-type]
-            fail_closed=True,
-            use_tenant=policy == "proposed",
-            strong_available=available,
-            est_strong_wait_ms=limiter.estimated_wait_ms(tenant.tenant_id),
-            t_strong_ms=T_STRONG_MS,
-            t_llm_ms=0.0,
-            global_tau=0.5,
-        )
-    )
-    route = decision.route
-    action = None
-    acquired = False
-    if route == "strong":
-        got = await limiter.acquire(tenant.tenant_id, timeout_s=QUEUE_TIMEOUT_S)
-        if got.ok:
-            acquired = True
-            async with api_lock:
-                out = await asyncio.to_thread(
-                    apply_guardrail,
-                    client,
-                    guardrail_id=guardrail_id,
-                    guardrail_version=version,
-                    text=prompt.text,
-                )
-            action = out.get("action")
-        else:
-            route = "reject"
-            decision = decision.model_copy(update={"route": "reject", "reason": got.reason})
-    if acquired:
-        await limiter.release(tenant.tenant_id)
-    latency_ms = (time.perf_counter() - t0) * 1000
-    admitted = route in {"direct", "strong"} and not decision.bypass
-    if action == "GUARDRAIL_INTERVENED":
-        admitted = False
-        route = "reject"
-        decision = decision.model_copy(update={"route": "reject", "reason": "guardrail_block"})
-    gt_unsafe = prompt.target_label == "unsafe"
-    return RunRecord(
-        request_id=str(rng.random()),
-        tenant_id=tenant.tenant_id,
-        variant_id=prompt.variant_id,
-        variant=prompt.variant,
-        gt_label=prompt.target_label,
-        policy=policy,  # type: ignore[arg-type]
+    return await run_scheduled(
+        client=client,
+        guardrail_id=guardrail_id,
+        version=version,
+        limiter=limiter,
+        prompt=prompt,
+        tenant=tenant,
+        policy=policy,
         q=q,
-        g_light_label="REVIEW" if q >= 0.5 else "SAFE",
-        decision=decision,
-        route=route,  # type: ignore[arg-type]
-        admitted_to_llm=admitted,
-        latency_ms=latency_ms,
-        slo_ms=tenant.slo_ms,
-        policy_compliant=policy_compliant(decision, route),  # type: ignore[arg-type]
-        safe=not (gt_unsafe and admitted),
-        slo_ok=latency_ms <= tenant.slo_ms,
-        apply_guardrail_action=action,
-        metadata={
-            "apply_guardrail_action": action,
-            "q_band": _q_band(q),
-            "source": (prompt.metadata or {}).get("source"),
-        },
+        rng=rng,
+        api_lock=api_lock,
+        metadata={"q_band": _q_band(q), "source": (prompt.metadata or {}).get("source")},
     )
 
 
@@ -174,14 +111,7 @@ def _cell_metrics(recs: list[RunRecord], *, policy: str, mix, duration_s: float,
 
 
 async def _cell(*, client, guardrail_id, version, policy, mix, safe, unsafe, mid, rep) -> dict:
-    limiter = StrongLimiter(
-        inflight_limit=2,
-        queue_max=16,
-        reserved_share=_reserved(policy),
-        overflow_mode=_overflow(policy),
-        bg_rps=BG,
-        burst=1,
-    )
+    limiter = make_limiter(overflow=overflow_mode(policy), reserved=_reserved(policy))
     api_lock = asyncio.Lock()
     pa, pb = mix
     rng = random.Random(170 + rep * 97 + int(pa * 100) + POLICIES.index(policy) * 13)
@@ -215,7 +145,7 @@ async def _cell(*, client, guardrail_id, version, policy, mix, safe, unsafe, mid
     )
     return {
         "metrics": _cell_metrics(recs, policy=policy, mix=mix, duration_s=DURATION_S, rep=rep),
-        "records": [json.loads(r.model_dump_json()) for r in recs],
+        "records": recs,
     }
 
 
@@ -251,10 +181,7 @@ def _pool_reps(cells: list[dict]) -> list[dict]:
 
 
 async def _run() -> dict:
-    root = Path(__file__).resolve().parents[1]
-    load_dotenv(root / ".env")
-    gid = os.environ["GASC_GUARDRAIL_ID"]
-    gver = os.environ.get("GASC_GUARDRAIL_VERSION", "1")
+    env = bedrock_session()
     scored = load_scored_prompts()
     safe, unsafe = split_safe_unsafe(scored)
     bands = split_q_bands(scored)
@@ -267,17 +194,16 @@ async def _run() -> dict:
     )
     if len(mid) < 5:
         raise RuntimeError(f"tenant-split band too small ({len(mid)}); need live q in [0.40, 0.75)")
-    client = bedrock_runtime(os.environ.get("AWS_REGION", "us-east-1"))
-    out = replay_dir("e2")
+    out = results_dir("e2")
     cells = []
     for rep in range(REPS):
         for policy in POLICIES:
             for mix in MIXES:
                 print(f"E2 r{rep} {policy} A:B={mix[0]:.0%}:{mix[1]:.0%} …", flush=True)
                 cell = await _cell(
-                    client=client,
-                    guardrail_id=gid,
-                    version=gver,
+                    client=env["client"],
+                    guardrail_id=env["guardrail_id"],
+                    version=env["version"],
                     policy=policy,
                     mix=mix,
                     safe=safe,
@@ -287,9 +213,7 @@ async def _run() -> dict:
                 )
                 print(json.dumps(cell["metrics"], indent=2), flush=True)
                 cells.append(cell["metrics"])
-                (out / f"r{rep}_{policy}_{mix[0]:.2f}_{mix[1]:.2f}.jsonl").write_text(
-                    "\n".join(json.dumps(r) for r in cell["records"]) + "\n"
-                )
+                write_jsonl(out / f"r{rep}_{policy}_{mix[0]:.2f}_{mix[1]:.2f}.jsonl", cell["records"])
     return {
         "bg_rps": BG,
         "r_gateway": R_GATEWAY,
@@ -306,7 +230,7 @@ async def _run() -> dict:
 
 def main() -> int:
     summary = asyncio.run(_run())
-    out = replay_dir("e2")
+    out = results_dir("e2")
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
         "# E2 multi-tenant contention (frozen minilm-l12-h384 q, 5 reps)",

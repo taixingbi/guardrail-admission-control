@@ -1,17 +1,12 @@
-# E6 ablations (E3 proposed overload, 1.5 Rg, 240–360 s)
+# E6 ablations (frozen minilm-l12-h384 q, 5 reps, E3 overload 1.5 Bg)
 
-Same arrivals and prompts as E3 proposed. Fail-closed. Tenant A only.
+Same arrival process as E3 proposed overload. Fail-closed. Tenant A only. q=frozen_g_light.
+Paper cells are median [p25, p75]. Full vs −NoEarlyReject is the systems headline. Do not retune τ.
+−NoTenant ≈ Full because this cell is Tenant A only (not because q is bimodal).
 
-| ablation | G_safe | UAR | reject | checked | starved | P50 ms | P95 ms | deadline |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| full | 2.283 | 0.000 | 0.241 | 32 | 55 | 0 | 211 | 55 |
-| no_tenant | 2.283 | 0.000 | 0.241 | 32 | 55 | 0 | 215 | 55 |
-| no_deadline | 2.283 | 0.000 | 0.241 | 32 | 55 | 0 | 218 | 0 |
-| no_early_reject | 2.283 | 0.000 | 0.241 | 46 | 41 | 0 | 2001 | 0 |
-
-## Read
-
-- Full matches the E3 proposed overload cell (\(G_{safe}=2.283\), UAR 0, 55 deadline rejects).
-- −NoTenant is identical: oracle \(q\in\{0,1\}\) so tenant \(\tau\) never changes the route. A real tenant ablation needs intermediate \(q\) or a live G_light replay.
-- −NoDeadline keeps the same admits/rejects; the 55 drops become `safety_floor` instead of `deadline`. With reject overflow those two knobs are substitutes.
-- −NoEarlyReject still fail-closes (UAR 0) but queues: 46 checks instead of 32, and P95 latency is 2001 ms (queue timeout). Early reject is what keeps Tenant A's 600 ms SLO during overload.
+| ablation | G_safe | UAR | reject | checked | P95 ms |
+| --- | --- | --- | --- | --- | --- |
+| full | 2.467 [2.392, 2.517] | 0.460 [0.425, 0.492] | 0.100 [0.083, 0.119] | 29.0 [27.0, 30.0] | 26 [24, 29] |
+| no_tenant | 2.442 [2.375, 2.458] | 0.429 [0.411, 0.458] | 0.114 [0.102, 0.127] | 31.0 [27.0, 32.0] | 26 [25, 26] |
+| no_deadline | 2.467 [2.392, 2.517] | 0.460 [0.425, 0.492] | 0.100 [0.083, 0.119] | 29.0 [27.0, 30.0] | 25 [24, 26] |
+| no_early_reject | 2.467 [2.358, 2.517] | 0.635 [0.603, 0.678] | 0.069 [0.053, 0.086] | 39.0 [38.0, 41.0] | 2002 [2000, 2002] |

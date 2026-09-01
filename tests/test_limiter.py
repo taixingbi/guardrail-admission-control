@@ -28,8 +28,8 @@ def test_tenant_b_reserved_share_not_eaten_by_a():
     asyncio.run(run())
 
 
-def test_token_bucket_rejects_when_rg_exhausted():
-    limiter = StrongLimiter(inflight_limit=8, queue_max=0, rg_rps=100.0, burst=1, overflow_mode="reject")
+def test_token_bucket_rejects_when_bg_exhausted():
+    limiter = StrongLimiter(inflight_limit=8, queue_max=0, bg_rps=100.0, burst=1, overflow_mode="reject")
 
     async def run() -> None:
         first = await limiter.acquire("A")
@@ -47,7 +47,7 @@ def test_sensitive_reserved_tokens_not_stolen_while_busy():
         inflight_limit=8,
         queue_max=0,
         reserved_share={"A": 0.0, "B": 0.5},
-        rg_rps=100.0,
+        bg_rps=100.0,
         burst=1,
         overflow_mode="reject",
     )
@@ -71,7 +71,7 @@ def test_idle_reserved_tokens_are_stealable():
         inflight_limit=8,
         queue_max=0,
         reserved_share={"A": 0.0, "B": 0.5},
-        rg_rps=100.0,
+        bg_rps=100.0,
         burst=1,
         overflow_mode="reject",
     )
@@ -92,7 +92,7 @@ def test_present_tenant_reserved_not_stolen_after_idle_release():
         inflight_limit=8,
         queue_max=0,
         reserved_share={"A": 0.0, "B": 0.5},
-        rg_rps=100.0,
+        bg_rps=100.0,
         burst=1,
         overflow_mode="reject",
     )

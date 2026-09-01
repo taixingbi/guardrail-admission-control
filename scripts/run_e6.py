@@ -9,22 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import random
 import time
-from pathlib import Path
 
-from dotenv import load_dotenv
+from gasc.replay_data import load_live_q, load_replay_prompts, q_for, results_dir, split_safe_unsafe
+from gasc.replay_exec import BG, R_GATEWAY, TENANT_A, bedrock_session, make_limiter, need_occupancy, run_scheduled
+from gasc.report import aggregate, fmt_stat, pool_by
+from gasc.schemas import RunRecord
 
-from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
-from gasc.limiter import StrongLimiter
-from gasc.replay_data import load_live_q, load_replay_prompts, q_for, replay_dir, split_safe_unsafe
-from gasc.report import aggregate, applied_strong, fmt_stat, pool_by
-from gasc.scheduler import SchedulerInputs, decide, policy_compliant
-from gasc.schemas import RunRecord, TenantPolicy
-
-BG = 0.4
-R_GATEWAY = 3.01
 E3_DURATION_S = 480.0
 OVERLOAD_LO = 240.0
 OVERLOAD_HI = 360.0
@@ -37,9 +29,7 @@ VARIANTS = (
     ("no_deadline", True, False, True, "reject"),
     ("no_early_reject", True, True, False, "queue"),
 )
-TENANT = TenantPolicy(tenant_id="A", tau=0.75, slo_ms=600, reserved_share=0.0)
-T_STRONG_MS = 215.0
-QUEUE_TIMEOUT_S = 2.0
+TENANT = TENANT_A
 
 
 def _frac_at(t_s: float) -> float:
@@ -63,81 +53,27 @@ def _e3_proposed_overload(prompts_safe, prompts_unsafe, *, rep: int = 0):
 
 
 async def _one(*, client, guardrail_id, version, limiter, variant, use_tenant, use_deadline, use_early_reject, prompt, rng, api_lock, t_s, live_q) -> RunRecord:
-    t0 = time.perf_counter()
-    q = q_for(prompt, live_q)
-    available = limiter.strong_available(TENANT.tenant_id)
-    decision = decide(
-        SchedulerInputs(
-            q=q,
-            tenant=TENANT,
-            policy="proposed",
-            fail_closed=True,
-            use_tenant=use_tenant,
-            use_deadline=use_deadline,
-            use_early_reject=use_early_reject,
-            strong_available=available,
-            est_strong_wait_ms=limiter.estimated_wait_ms(TENANT.tenant_id),
-            t_strong_ms=T_STRONG_MS,
-            t_llm_ms=0.0,
-            global_tau=0.5,
-        )
-    )
-    route = decision.route
-    action = None
-    acquired = False
-    if route == "strong":
-        got = await limiter.acquire(TENANT.tenant_id, timeout_s=QUEUE_TIMEOUT_S)
-        if got.ok:
-            acquired = True
-            async with api_lock:
-                out = await asyncio.to_thread(
-                    apply_guardrail,
-                    client,
-                    guardrail_id=guardrail_id,
-                    guardrail_version=version,
-                    text=prompt.text,
-                )
-            action = out.get("action")
-        else:
-            route = "reject"
-            decision = decision.model_copy(update={"route": "reject", "reason": got.reason})
-    if acquired:
-        await limiter.release(TENANT.tenant_id)
-    latency_ms = (time.perf_counter() - t0) * 1000
-    if action == "GUARDRAIL_INTERVENED":
-        route = "reject"
-        decision = decision.model_copy(update={"route": "reject", "reason": "guardrail_block"})
-    admitted = route in {"direct", "strong"} and not decision.bypass
-    gt_unsafe = prompt.target_label == "unsafe"
-    return RunRecord(
-        request_id=str(rng.random()),
-        tenant_id=TENANT.tenant_id,
-        variant_id=prompt.variant_id,
-        variant=prompt.variant,
-        gt_label=prompt.target_label,
+    return await run_scheduled(
+        client=client,
+        guardrail_id=guardrail_id,
+        version=version,
+        limiter=limiter,
+        prompt=prompt,
+        tenant=TENANT,
         policy="proposed",
-        q=q,
-        g_light_label="REVIEW" if q >= 0.5 else "SAFE",
-        decision=decision,
-        route=route,  # type: ignore[arg-type]
-        admitted_to_llm=admitted,
-        latency_ms=latency_ms,
-        slo_ms=TENANT.slo_ms,
-        policy_compliant=policy_compliant(decision, route),  # type: ignore[arg-type]
-        safe=not (gt_unsafe and admitted),
-        slo_ok=latency_ms <= TENANT.slo_ms,
-        apply_guardrail_action=action,
-        metadata={
-            "apply_guardrail_action": action,
-            "ablation": variant,
-            "t_s": t_s,
-            "reason": decision.reason,
-        },
+        q=q_for(prompt, live_q),
+        rng=rng,
+        api_lock=api_lock,
+        use_tenant=use_tenant,
+        use_deadline=use_deadline,
+        use_early_reject=use_early_reject,
+        metadata={"ablation": variant, "t_s": t_s},
     )
 
 
 def _window(recs: list[RunRecord], duration_s: float) -> dict:
     m = aggregate(recs, duration_s=duration_s)
+    occ = need_occupancy(recs)
     need = [r for r in recs if r.decision.need_strong]
     reasons: dict[str, int] = {}
     for r in need:
@@ -153,9 +89,7 @@ def _window(recs: list[RunRecord], duration_s: float) -> dict:
 
     m.update(
         {
-            "n_need": len(need),
-            "n_checked": sum(1 for r in need if applied_strong(r)),
-            "n_starved": sum(1 for r in need if not applied_strong(r)),
+            **occ,
             "n_deadline": sum(1 for r in recs if r.decision.reason == "deadline"),
             "n_queue_anyway": sum(1 for r in recs if r.decision.reason == "queue_anyway"),
             "latency_p50_ms": pct(50),
@@ -167,14 +101,7 @@ def _window(recs: list[RunRecord], duration_s: float) -> dict:
 
 
 async def _cell(*, client, guardrail_id, version, variant, use_tenant, use_deadline, use_early_reject, overflow, planned, live_q, rep: int = 0) -> dict:
-    limiter = StrongLimiter(
-        inflight_limit=2,
-        queue_max=16,
-        reserved_share={},
-        overflow_mode=overflow,
-        bg_rps=BG,
-        burst=1,
-    )
+    limiter = make_limiter(overflow=overflow)
     api_lock = asyncio.Lock()
     rng = random.Random(60 + {"full": 1, "no_tenant": 2, "no_deadline": 3, "no_early_reject": 4}[variant] + rep * 1000)
     t0_abs = planned[0][0]
@@ -218,10 +145,7 @@ async def _cell(*, client, guardrail_id, version, variant, use_tenant, use_deadl
 
 
 async def _run() -> dict:
-    root = Path(__file__).resolve().parents[1]
-    load_dotenv(root / ".env")
-    gid = os.environ["GASC_GUARDRAIL_ID"]
-    gver = os.environ.get("GASC_GUARDRAIL_VERSION", "1")
+    env = bedrock_session()
     frozen = load_replay_prompts()
     safe, unsafe = split_safe_unsafe(frozen)
     live_q = load_live_q(required=True)
@@ -230,18 +154,16 @@ async def _run() -> dict:
         f"frozen_q={len(live_q)} {REPS} reps",
         flush=True,
     )
-    client = bedrock_runtime(os.environ.get("AWS_REGION", "us-east-1"))
-    out = replay_dir("e6")
-    out.mkdir(parents=True, exist_ok=True)
+    out = results_dir("e6")
     cells = []
     for rep in range(REPS):
         planned = _e3_proposed_overload(safe, unsafe, rep=rep)
         for variant, use_tenant, use_deadline, use_early_reject, overflow in VARIANTS:
             print(f"E6 r{rep} {variant} ({len(planned)} req, 120s) …", flush=True)
             cell = await _cell(
-                client=client,
-                guardrail_id=gid,
-                version=gver,
+                client=env["client"],
+                guardrail_id=env["guardrail_id"],
+                version=env["version"],
                 variant=variant,
                 use_tenant=use_tenant,
                 use_deadline=use_deadline,
@@ -275,7 +197,7 @@ async def _run() -> dict:
 
 def main() -> int:
     summary = asyncio.run(_run())
-    out = replay_dir("e6")
+    out = results_dir("e6")
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
         "# E6 ablations (frozen minilm-l12-h384 q, 5 reps, E3 overload 1.5 Bg)",

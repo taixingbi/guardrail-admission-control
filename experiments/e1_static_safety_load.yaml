@@ -8,6 +8,6 @@ bg_rps: 0.4
 duration_s: 40
 reps: 5
 command: python3 scripts/run_e1.py
-output: results/replay/e1/
+output: results/e1/
 note: Formal. Frozen Function URL q. 5 reps. Median [IQR] in metrics.md. Demand is a fraction of gateway budget Bg.
 

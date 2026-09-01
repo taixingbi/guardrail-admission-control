@@ -10,36 +10,36 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import random
 import time
-from pathlib import Path
 
-from dotenv import load_dotenv
-
+from gasc.clients.bedrock import converse_stream
 from gasc.clients.minilm import score_minilm_remote
-from gasc.clients.bedrock import apply_guardrail, bedrock_runtime, converse_stream
 from gasc.eval_binary import percentile
-from gasc.limiter import StrongLimiter
-from gasc.replay_data import load_live_q, load_replay_prompts, q_for, replay_dir, split_safe_unsafe
+from gasc.replay_data import load_live_q, load_replay_prompts, q_for, results_dir, split_safe_unsafe
+from gasc.replay_exec import (
+    BG,
+    R_GATEWAY,
+    TENANT_A,
+    apply_if_strong,
+    bedrock_session,
+    decide_for,
+    finish_record,
+    make_limiter,
+)
 from gasc.report import aggregate
-from gasc.scheduler import SchedulerInputs, decide, policy_compliant
-from gasc.schemas import RunRecord, TenantPolicy
+from gasc.schemas import RunRecord
 
-BG = 0.4
-R_GATEWAY = 3.01
 DURATION_S = 40.0
 FRAC = 1.0
-TENANT = TenantPolicy(tenant_id="A", tau=0.75, slo_ms=600, reserved_share=0.0)
-T_STRONG_MS = 215.0
+TENANT = TENANT_A
 T_LLM_MS = 250.0
-QUEUE_TIMEOUT_S = 2.0
 C_STAR = 2
 LLM = "us.meta.llama4-maverick-17b-instruct-v1:0"
 MAX_TOKENS = 64
 
 
-def _score_live(_client, text: str) -> tuple[float, str, float]:
+def _score_live(text: str) -> tuple[float, str, float]:
     t0 = time.perf_counter()
     q, label = score_minilm_remote(text)
     return q, label, (time.perf_counter() - t0) * 1000
@@ -50,7 +50,7 @@ async def _one(
     client,
     guardrail_id: str,
     version: str,
-    limiter: StrongLimiter,
+    limiter,
     llm_sem: asyncio.Semaphore,
     prompt,
     rng: random.Random,
@@ -61,57 +61,34 @@ async def _one(
     t0 = time.perf_counter()
     g_light_ms = 0.0
     if live_g_light:
-        q, label, g_light_ms = await asyncio.to_thread(_score_live, client, prompt.text)
+        q, label, g_light_ms = await asyncio.to_thread(_score_live, prompt.text)
     else:
         q = q_for(prompt, live_q)
         label = "REVIEW" if q >= 0.5 else "SAFE"
-    available = limiter.strong_available(TENANT.tenant_id)
-    decision = decide(
-        SchedulerInputs(
-            q=q,
-            tenant=TENANT,
-            policy="proposed",
-            fail_closed=True,
-            use_tenant=True,
-            strong_available=available,
-            est_strong_wait_ms=limiter.estimated_wait_ms(TENANT.tenant_id),
-            t_strong_ms=T_STRONG_MS,
-            t_llm_ms=T_LLM_MS,
-            global_tau=0.5,
-        )
+    decision = decide_for(
+        q=q,
+        tenant=TENANT,
+        policy="proposed",
+        limiter=limiter,
+        t_llm_ms=T_LLM_MS,
     )
-    route = decision.route
-    action = None
-    acquired = False
-    strong_ms = 0.0
-    if route == "strong":
-        got = await limiter.acquire(TENANT.tenant_id, timeout_s=QUEUE_TIMEOUT_S)
-        if got.ok:
-            acquired = True
-            t_s = time.perf_counter()
-            async with api_lock:
-                out = await asyncio.to_thread(
-                    apply_guardrail,
-                    client,
-                    guardrail_id=guardrail_id,
-                    guardrail_version=version,
-                    text=prompt.text,
-                )
-            strong_ms = (time.perf_counter() - t_s) * 1000
-            action = out.get("action")
-        else:
-            route = "reject"
-            decision = decision.model_copy(update={"route": "reject", "reason": got.reason})
-    if acquired:
-        await limiter.release(TENANT.tenant_id)
-    if action == "GUARDRAIL_INTERVENED":
-        route = "reject"
-        decision = decision.model_copy(update={"route": "reject", "reason": "guardrail_block"})
-    admitted = route in {"direct", "strong"} and not decision.bypass
+    t_s = time.perf_counter()
+    route, decision, action = await apply_if_strong(
+        client=client,
+        guardrail_id=guardrail_id,
+        version=version,
+        limiter=limiter,
+        tenant_id=TENANT.tenant_id,
+        text=prompt.text,
+        route=decision.route,
+        decision=decision,
+        api_lock=api_lock,
+    )
+    strong_ms = (time.perf_counter() - t_s) * 1000 if action is not None else 0.0
     llm_ttft = None
     llm_e2e = None
     llm_err = None
-    if admitted:
+    if route in {"direct", "strong"} and not decision.bypass:
         async with llm_sem:
             t_l = time.perf_counter()
             rec = await asyncio.to_thread(
@@ -125,30 +102,20 @@ async def _one(
         llm_ttft = rec.ttft_ms
         if rec.throttled or rec.error:
             llm_err = rec.error or "throttled"
-            admitted = False
             route = "reject"
             decision = decision.model_copy(update={"route": "reject", "reason": "llm_error"})
-    latency_ms = (time.perf_counter() - t0) * 1000
-    gt_unsafe = prompt.target_label == "unsafe"
-    return RunRecord(
-        request_id=str(rng.random()),
-        tenant_id=TENANT.tenant_id,
-        variant_id=prompt.variant_id,
-        variant=prompt.variant,
-        gt_label=prompt.target_label,
+    return finish_record(
+        prompt=prompt,
+        tenant=TENANT,
         policy="proposed",
         q=q,
-        g_light_label=label,  # type: ignore[arg-type]
         decision=decision,
-        route=route,  # type: ignore[arg-type]
-        admitted_to_llm=admitted,
-        latency_ms=latency_ms,
-        slo_ms=TENANT.slo_ms,
-        policy_compliant=policy_compliant(decision, route),  # type: ignore[arg-type]
-        safe=not (gt_unsafe and admitted),
-        slo_ok=latency_ms <= TENANT.slo_ms,
+        route=route,
+        action=action,
+        latency_ms=(time.perf_counter() - t0) * 1000,
+        rng=rng,
+        g_light_label=label,
         metadata={
-            "apply_guardrail_action": action,
             "g_light_ms": g_light_ms,
             "strong_ms": strong_ms,
             "llm_ttft_ms": llm_ttft,
@@ -180,14 +147,7 @@ def _extra(recs: list[RunRecord]) -> dict:
 
 
 async def _cell(*, client, guardrail_id, version, live_q, live_g_light, prompts_safe, prompts_unsafe) -> dict:
-    limiter = StrongLimiter(
-        inflight_limit=2,
-        queue_max=16,
-        reserved_share={},
-        overflow_mode="reject",
-        bg_rps=BG,
-        burst=1,
-    )
+    limiter = make_limiter(overflow="reject")
     llm_sem = asyncio.Semaphore(C_STAR)
     api_lock = asyncio.Lock()
     rng = random.Random(80 if live_g_light else 70)
@@ -222,23 +182,19 @@ async def _cell(*, client, guardrail_id, version, live_q, live_g_light, prompts_
 
 
 async def _run() -> dict:
-    root = Path(__file__).resolve().parents[1]
-    load_dotenv(root / ".env")
-    gid = os.environ["GASC_GUARDRAIL_ID"]
-    gver = os.environ.get("GASC_GUARDRAIL_VERSION", "1")
+    env = bedrock_session()
     frozen = load_replay_prompts()
     safe, unsafe = split_safe_unsafe(frozen)
     live_q = load_live_q(required=True)
     print(f"E2e n={len(frozen)} live_q={len(live_q)}", flush=True)
-    client = bedrock_runtime(os.environ.get("AWS_REGION", "us-east-1"))
-    out = replay_dir("e2e")
+    out = results_dir("e2e")
     cells = []
     for live_g_light, name in ((False, "replay_q"), (True, "live_path")):
         print(f"E2e {name} 40s …", flush=True)
         cell = await _cell(
-            client=client,
-            guardrail_id=gid,
-            version=gver,
+            client=env["client"],
+            guardrail_id=env["guardrail_id"],
+            version=env["version"],
             live_q=live_q,
             live_g_light=live_g_light,
             prompts_safe=safe,
@@ -261,7 +217,7 @@ async def _run() -> dict:
 
 def main() -> int:
     summary = asyncio.run(_run())
-    out = replay_dir("e2e")
+    out = results_dir("e2e")
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
         "# E2e sanity (Proposed, 1.0 Bg, 40s)",

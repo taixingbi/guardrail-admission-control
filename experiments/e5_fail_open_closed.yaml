@@ -9,6 +9,6 @@ policies:
   - {id: proposed_fail_closed, fail_closed: true, use_deadline: true}
   - {id: proposed_fail_open, fail_closed: false, use_deadline: false}
 command: python3 scripts/run_e5.py
-output: results/replay/e5/
+output: results/e5/
 reps: 5
 note: Frozen Function URL q. 5 reps. Fail-open turns off deadline so exhaustion reaches bypass. Fail-closed is frozen B4.
