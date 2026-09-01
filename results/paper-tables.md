@@ -96,7 +96,7 @@ Overall Proposed \(G_{\mathrm{safe}}\) 2.269 [2.267, 2.283]; Always-Strong stuck
 
 ## Table 6 — Fail-closed vs fail-open (E5)
 
-*Caption.* Proposed only. Fail-closed: **zero scheduler-induced bypass** (\(UAR_{\mathrm{bypass}}=0\)), not a GT-safety guarantee. Fail-open admits all GT-unsafe traffic in these cells and bypasses 57–62% of required strong checks for only ~3% additional Safe Goodput.
+*Caption.* Proposed only. Fail-closed: **zero scheduler-induced bypass** (\(UAR_{\mathrm{bypass}}=0\)), not a GT-safety guarantee. Fail-open bypasses 57–62% of policy-required strong checks and drives UAR to 1.0 for only about 3% additional Safe Goodput.
 
 | Mode | Demand | \(G_{\mathrm{safe}}\) | UAR | \(UAR_{\mathrm{light}}\) | \(UAR_{\mathrm{strong}}\) | \(UAR_{\mathrm{bypass}}\) | Bypass/need | Checked |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

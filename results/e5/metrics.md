@@ -4,8 +4,8 @@ Proposed only. R_gateway=3.01, Bg=0.4, 60s/cell × 5 reps. q=frozen_g_light.
 Fail-open disables deadline so exhaustion can bypass. Fail-closed keeps frozen B4.
 Paper cells are median [p25, p75]. MiniLM is an inexpensive risk estimator, not the authority.
 Fail-closed: UAR_bypass = 0 (zero scheduler-induced bypass), not a GT-safety guarantee.
-Fail-open admits all GT-unsafe in these cells and bypasses a large share of required strong checks
-for only ~3% additional Safe Goodput. Residual fail-closed UAR is MiniLM FN and/or G_strong miss.
+Fail-open bypasses 57–62% of policy-required strong checks and drives UAR to 1.0
+for only about 3% additional Safe Goodput. Residual fail-closed UAR is MiniLM FN and/or G_strong miss.
 n_checked rebuilt from jsonl via applied_strong (formal records store action=None).
 
 | mode | demand | G_safe | UAR | light | strong | bypass | reject | bypass/need | checked | starved |

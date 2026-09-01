@@ -173,7 +173,7 @@ def main() -> int:
         [
             "",
             f"**B_g^{{raw}}** = {bg_raw:.2f} rps at C={best['concurrency']}" if best else "**B_g^{raw}** unavailable",
-            f"**Experimental Bg** = {experimental_bg} rps (gateway safety budget, not provider capacity).",
+            f"**Experimental \(B_g\)** = {experimental_bg} rps (gateway safety budget, not provider capacity).",
             "",
         ]
     )

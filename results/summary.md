@@ -58,7 +58,7 @@ Suspicious mix 5% → 50% → 5% (offered strong ≈ 0.38 → 3.76 → 0.38 \(B_
 
 ### E5 — fail-open vs fail-closed
 
-At 1.5 \(B_g\): fail-closed UAR **0.436**, G_safe **2.333**, bypass/need **0**; fail-open UAR **1.0**, G_safe **2.400**, bypass/need **0.57**. Fail-open admits all GT-unsafe in these cells and bypasses 57–62% of required strong checks for only ~3% additional Safe Goodput. Fail-closed claim is **zero scheduler-induced bypass**, not a safety guarantee.
+At 1.5 \(B_g\): fail-closed UAR **0.436**, G_safe **2.333**, bypass/need **0**; fail-open UAR **1.0**, G_safe **2.400**, bypass/need **0.57**. Fail-open bypasses 57–62% of policy-required strong checks and drives UAR to 1.0 for only about 3% additional Safe Goodput. Fail-closed claim is **zero scheduler-induced bypass**, not a safety guarantee.
 
 ### E6 — ablations (E3 overload 1.5 \(B_g\))
 

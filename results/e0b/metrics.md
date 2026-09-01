@@ -13,8 +13,8 @@ Duration 12s per C. Guardrail `bklyj6c5nrb5` v1. Prompt = S1-length cookie text.
 
 No `ThrottlingException` even at C=32 (burst above the documented 50 rps quota). The usable cliff is **latency**: P95 stays ~310–360 ms through C=16, then doubles at C=32.
 
-- **Bg_raw** = **71.4 rps** at C=16 (best goodput with P95 ≤ 1.5 × C=1 P95).
+- **\(B_g^{\mathrm{raw}}\)** = **71.4 rps** at C=16 (best goodput with P95 ≤ 1.5 × C=1 P95).
 - C=32 is not the operating point (P95 718 ms).
-- **Experimental Bg** = **0.4 rps** (gateway token-bucket). This is an org safety budget so E1–E4 can saturate G_strong without first hitting Maverick (~1.8 rps) or raw ApplyGuardrail (~71 rps).
+- **Experimental \(B_g\)** = **0.4 rps** (gateway token-bucket). This is an org safety budget so E1–E4 can saturate G_strong without first hitting Maverick (~1.8 rps) or raw ApplyGuardrail (~71 rps).
 
 ApplyGuardrail P50 (~215 ms) is lower than MiniLM Function URL G_light P50 (~524 ms). MiniLM is an inexpensive risk estimator, not a low-latency guardrail. Raw G_strong is not the bottleneck; the scheduled resource is the gateway quota.
