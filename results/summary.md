@@ -18,6 +18,7 @@ E1–E6 P95 is **safety-stage / controller-path** latency (scheduler wait + Appl
 | `e2e/` | Proposed sanity: frozen \(q\) vs live Function URL on the hot path |
 | `freeze/` | P4 prompt freeze (1888 / 472 families) |
 | `metrics.md` | one-line index |
+| `paper-tables.md` | locked paper table drafts |
 
 ## Locked knobs
 
