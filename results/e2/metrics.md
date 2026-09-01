@@ -3,8 +3,8 @@
 Gateway safety budget Bg=0.4 rps (not ApplyGuardrail provider capacity). R_gateway=3.01, 120s/cell × 5 reps.
 q = frozen Function URL MiniLM. Tenant-split band is 0.40 ≤ q < 0.75 (A direct, B strong).
 Isolation = checked vs starved among B required-strong. Paper cells are median [p25, p75].
-MiniLM is a screener; ApplyGuardrail is the authority. Do not retune τ on XSTest/WildGuardTest.
-Proposed guarantees policy compliance conditional on q, not GT safety.
+MiniLM is an inexpensive risk estimator, not a low-latency guardrail. Do not retune τ.
+Novelty is tenant isolation / B strong-check coverage, not better UAR_B.
 
 ## Tenant-split routing (pooled)
 
@@ -48,5 +48,5 @@ Proposed guarantees policy compliance conditional on q, not GT safety.
 | proposed | 50%:50% | 1.567 [1.567, 1.683] | 0.517 [0.492, 0.517] | 570 | 176 | 394 | 30.9% | 515 | 0.392 [0.391, 0.413] |
 | proposed | 30%:70% | 1.283 [1.258, 1.317] | 0.658 [0.642, 0.667] | 832 | 210 | 622 | 25.2% | 717 | 0.347 [0.329, 0.349] |
 
-Coverage = checked / need among B required-strong. UAR_B includes MiniLM false negatives
-(GT-unsafe with q below τ_B); that is classifier error, not fail-open bypass.
+Coverage = checked / need among B required-strong. Headline is isolation, not UAR_B.
+UAR_B mixes MiniLM FN (q below τ_B) and G_strong misses; it is not fail-open bypass.

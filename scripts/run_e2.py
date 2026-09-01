@@ -270,9 +270,8 @@ def main() -> int:
         )
     lines += [
         "",
-        "Coverage = checked / need among B required-strong. UAR_B includes MiniLM false negatives",
-        "(GT-unsafe with q below τ_B); that is classifier error, not fail-open bypass.",
-        "Proposed guarantees policy compliance conditional on q, not GT safety.",
+        "Coverage = checked / need among B required-strong. Headline is isolation, not UAR_B.",
+        "UAR_B mixes MiniLM FN (q below τ_B) and G_strong misses; it is not fail-open bypass.",
     ]
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"wrote {out}")

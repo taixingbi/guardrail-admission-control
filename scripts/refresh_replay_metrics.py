@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Rebuild replay metrics.json/md from existing jsonl. No AWS.
 
-Fixes: efficiency (risk-required occupancy), E2/E6 checked = strong slot,
-user-facing Bg labels. Does not rerun experiments.
+Recomputes occupancy via applied_strong (route==strong / guardrail_block)
+and UAR_light / UAR_strong / UAR_bypass. Does not rerun Bedrock.
 """
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import re
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,12 +23,39 @@ from gasc.schemas import RunRecord  # noqa: E402
 
 from run_e2 import DURATION_S as E2_DUR  # noqa: E402
 from run_e2 import _cell_metrics, _pool_reps  # noqa: E402
+from run_e3 import DURATION_S as E3_DUR  # noqa: E402
+from run_e3 import PHASES as E3_PHASES  # noqa: E402
+from run_e4 import DURATION_S as E4_DUR  # noqa: E402
+from run_e4 import PHASES as E4_PHASES  # noqa: E402
+from run_e4 import _offered_bg  # noqa: E402
+from run_e5 import DURATION_S as E5_DUR  # noqa: E402
+from run_e5 import _extra as e5_extra  # noqa: E402
 from run_e6 import _window  # noqa: E402
+
+POLICY_RE = r"always_strong|risk_only|load_aware|proposed"
+POLICY_ORDER = ("always_strong", "risk_only", "load_aware", "proposed")
+
+
+def _t_s(r: RunRecord) -> float:
+    return float((r.metadata or {}).get("t_s") or -1.0)
+
+
+def _phase_rows(recs: list[RunRecord], phases: tuple, *, policy: str, rep: int, extra_fn) -> list[dict]:
+    rows = []
+    prev = 0.0
+    for until, val in phases:
+        chunk = [r for r in recs if prev <= _t_s(r) < until]
+        row = aggregate(chunk, duration_s=until - prev)
+        row.update({"policy": policy, "phase": f"{prev:.0f}-{until:.0f}s", "n": len(chunk), "rep": rep})
+        extra_fn(row, val)
+        rows.append(row)
+        prev = until
+    return rows
 
 
 def _e1() -> None:
     out = results_dir("e1")
-    pat = re.compile(r"^r(\d+)_(always_strong|risk_only|load_aware|proposed)_(\d+\.\d+)\.jsonl$")
+    pat = re.compile(rf"^r(\d+)_({POLICY_RE})_(\d+\.\d+)\.jsonl$")
     cells = []
     for f in sorted(out.glob("r*.jsonl")):
         m = pat.match(f.name)
@@ -57,12 +83,19 @@ def _e1() -> None:
         "pooled": pool_by(
             cells,
             ("policy", "strong_demand_frac_of_bg"),
-            ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate", "guardrail_capacity_efficiency"),
+            (
+                "safe_slo_goodput",
+                "unsafe_admission_rate",
+                "uar_light",
+                "uar_strong",
+                "uar_bypass",
+                "reject_rate",
+                "guardrail_capacity_efficiency",
+            ),
         ),
     }
-    order = ("always_strong", "risk_only", "load_aware", "proposed")
     summary["pooled"].sort(
-        key=lambda m: (order.index(m["policy"]), m["strong_demand_frac_of_bg"])
+        key=lambda m: (POLICY_ORDER.index(m["policy"]), m["strong_demand_frac_of_bg"])
     )
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
@@ -70,18 +103,20 @@ def _e1() -> None:
         "",
         "R_gateway=3.01 rps, Bg=0.4 rps (gateway safety budget, not provider capacity), "
         "40s/cell × 5 reps. q=frozen_g_light. Live ApplyGuardrail, no Maverick.",
+        "Latency is **safety-stage** (scheduler + ApplyGuardrail), not user E2E (no MiniLM, no Maverick on this path).",
         "Paper cells are median [p25, p75]. Do not retune τ.",
-        "UAR is MiniLM false negatives (q below τ, so scheduler never requires strong), not fail-open.",
+        "UAR = UAR_light + UAR_strong + UAR_bypass. Always-Strong UAR is G_strong miss, not MiniLM FN.",
         "Efficiency = risk-required strong occupancy / all strong occupancy (Always-Strong waste is q < τ).",
-        "Proposed guarantees policy compliance conditional on q, not GT safety.",
+        "Claim: uniform strong checking wastes a bounded safety budget. Not Proposed-dominance vs risk-only/load-aware.",
         "",
-        "| policy | demand | G_safe | UAR | reject | efficiency |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| policy | demand | G_safe | UAR | light | strong | bypass | reject | efficiency |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for m in summary["pooled"]:
         lines.append(
             f"| {m['policy']} | {m['strong_demand_frac_of_bg']:.2f} Bg | "
             f"{fmt_stat(m['safe_slo_goodput'])} | {fmt_stat(m['unsafe_admission_rate'])} | "
+            f"{fmt_stat(m['uar_light'])} | {fmt_stat(m['uar_strong'])} | {fmt_stat(m['uar_bypass'])} | "
             f"{fmt_stat(m['reject_rate'])} | {fmt_stat(m['guardrail_capacity_efficiency'], digits=2)} |"
         )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
@@ -90,9 +125,7 @@ def _e1() -> None:
 
 def _e2() -> None:
     out = results_dir("e2")
-    pat = re.compile(
-        r"^r(\d+)_(always_strong|risk_only|load_aware|proposed)_(\d+\.\d+)_(\d+\.\d+)\.jsonl$"
-    )
+    pat = re.compile(rf"^r(\d+)_({POLICY_RE})_(\d+\.\d+)_(\d+\.\d+)\.jsonl$")
     cells = []
     for f in sorted(out.glob("r*.jsonl")):
         m = pat.match(f.name)
@@ -111,8 +144,8 @@ def _e2() -> None:
         "Gateway safety budget Bg=0.4 rps (not ApplyGuardrail provider capacity). R_gateway=3.01, 120s/cell × 5 reps.",
         "q = frozen Function URL MiniLM. Tenant-split band is 0.40 ≤ q < 0.75 (A direct, B strong).",
         "Isolation = checked vs starved among B required-strong. Paper cells are median [p25, p75].",
-        "MiniLM is a screener; ApplyGuardrail is the authority. Do not retune τ on XSTest/WildGuardTest.",
-        "Proposed guarantees policy compliance conditional on q, not GT safety.",
+        "MiniLM is an inexpensive risk estimator, not a low-latency guardrail. Do not retune τ.",
+        "Novelty is tenant isolation / B strong-check coverage, not better UAR_B.",
         "",
         "## Tenant-split routing (pooled)",
         "",
@@ -143,193 +176,300 @@ def _e2() -> None:
         )
     lines += [
         "",
-        "Coverage = checked / need among B required-strong. UAR_B includes MiniLM false negatives",
-        "(GT-unsafe with q below τ_B); that is classifier error, not fail-open bypass.",
+        "Coverage = checked / need among B required-strong. Headline is isolation, not UAR_B.",
+        "UAR_B mixes MiniLM FN (q below τ_B) and G_strong misses; it is not fail-open bypass.",
     ]
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"refreshed {out}")
 
 
-def _patch_phase_checked(out: Path, cells: list) -> None:
-    for cell in cells:
-        if cell["overall"].get("rep", 0) != 0:
-            continue
-        policy = cell["overall"]["policy"]
-        path = out / f"r0_{policy}.jsonl"
-        if not path.exists():
-            continue
-        recs = load_jsonl(path, RunRecord)
-        by_phase: dict[str, list] = defaultdict(list)
-        for r in recs:
-            by_phase[str((r.metadata or {}).get("phase") or "")].append(r)
-        for m in cell.get("phases") or []:
-            label = str(m.get("phase") or "")
-            chunk = []
-            for key, rows in by_phase.items():
-                if key.startswith(label) or label in key:
-                    chunk.extend(rows)
-            if not chunk:
-                continue
-            need = [r for r in chunk if r.decision.need_strong]
-            n_chk = sum(1 for r in need if applied_strong(r))
-            m["n_checked"] = n_chk
-            m["n_starved"] = len(need) - n_chk
-            m["checked_rate"] = (n_chk / len(need)) if need else None
-
-
-def _alias_frac(row: dict, *keys: str):
-    for k in keys:
-        if row.get(k) is not None:
-            return row[k]
-    return None
-
-
 def _e3() -> None:
     out = results_dir("e3")
-    summary = json.loads((out / "metrics.json").read_text())
-    summary["bg"] = 0.4
-    for ph in summary.get("phases") or []:
-        frac = _alias_frac(ph, "strong_frac_of_bg", "strong_frac_of_rg")
-        if frac is not None:
-            ph["strong_frac_of_bg"] = frac
-    for cell in summary.get("cells") or []:
-        for m in cell.get("phases") or []:
-            frac = _alias_frac(m, "strong_frac_of_bg", "strong_frac_of_rg")
-            if frac is not None:
-                m["strong_frac_of_bg"] = frac
-    _patch_phase_checked(out, summary.get("cells") or [])
+    pat = re.compile(rf"^r(\d+)_({POLICY_RE})\.jsonl$")
+    cells = []
+    for f in sorted(out.glob("r*.jsonl")):
+        m = pat.match(f.name)
+        if not m:
+            continue
+        rep, policy = int(m.group(1)), m.group(2)
+        recs = load_jsonl(f, RunRecord)
+        overall = aggregate(recs, duration_s=E3_DUR)
+        overall.update({"policy": policy, "rep": rep, "n": len(recs)})
+        cells.append(
+            {
+                "overall": overall,
+                "phases": _phase_rows(
+                    recs,
+                    E3_PHASES,
+                    policy=policy,
+                    rep=rep,
+                    extra_fn=lambda row, frac: row.update({"strong_frac_of_bg": frac}),
+                ),
+            }
+        )
+    pooled = pool_by(
+        [c["overall"] for c in cells],
+        ("policy",),
+        (
+            "safe_slo_goodput",
+            "unsafe_admission_rate",
+            "uar_light",
+            "uar_strong",
+            "uar_bypass",
+            "reject_rate",
+        ),
+    )
+    pooled.sort(key=lambda m: POLICY_ORDER.index(m["policy"]))
+    pooled_phases = pool_by(
+        [p for c in cells for p in c["phases"]],
+        ("policy", "phase", "strong_frac_of_bg"),
+        (
+            "safe_slo_goodput",
+            "unsafe_admission_rate",
+            "reject_rate",
+            "n_checked",
+            "n_starved",
+            "checked_rate",
+        ),
+    )
+    pooled_phases.sort(key=lambda m: (POLICY_ORDER.index(m["policy"]), m["phase"]))
+    summary = {
+        "bg": 0.4,
+        "r_gateway": 3.01,
+        "duration_s": E3_DUR,
+        "reps": 5,
+        "q_source": "frozen_g_light",
+        "phases": [{"until_s": u, "strong_frac_of_bg": f} for u, f in E3_PHASES],
+        "cells": cells,
+        "pooled": pooled,
+        "pooled_phases": pooled_phases,
+    }
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
         "# E3 dynamic safety load (frozen minilm-l12-h384 q, 5 reps)",
         "",
         "R_gateway=3.01 rps, Bg=0.4 rps, 480s/policy × 5 reps. Mix 0.5→0.9→1.5→0.6 Bg.",
-        f"Tenant A only. q={summary.get('q_source')}. Live ApplyGuardrail, no Maverick.",
-        "Paper overall cells are median [p25, p75]. Do not retune τ.",
-        "UAR is MiniLM false negatives, not fail-open. Dynamic strong-guard demand changes goodput at fixed gateway config.",
+        "Tenant A only. q=frozen_g_light. Live ApplyGuardrail, no Maverick.",
+        "Latency is safety-stage (scheduler + ApplyGuardrail), not user E2E.",
+        "Paper cells are median [p25, p75]. Robustness under dynamic mix, not Proposed-dominance.",
+        "UAR = light + strong + bypass. Residual is MiniLM FN and/or G_strong miss, not fail-open.",
+        "checked/starved rebuilt from jsonl via applied_strong (route==strong / guardrail_block).",
         "",
         "## Overall (median [IQR])",
         "",
-        "| policy | G_safe | UAR | reject |",
-        "| --- | --- | --- | --- |",
+        "| policy | G_safe | UAR | light | strong | bypass | reject |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
-    for m in summary["pooled"]:
+    for m in pooled:
         lines.append(
             f"| {m['policy']} | {fmt_stat(m['safe_slo_goodput'])} | "
-            f"{fmt_stat(m['unsafe_admission_rate'])} | {fmt_stat(m['reject_rate'])} |"
+            f"{fmt_stat(m['unsafe_admission_rate'])} | {fmt_stat(m['uar_light'])} | "
+            f"{fmt_stat(m['uar_strong'])} | {fmt_stat(m['uar_bypass'])} | "
+            f"{fmt_stat(m['reject_rate'])} |"
         )
     lines += [
         "",
-        "## Per phase (rep 0 shown in jsonl; pooled overall is the paper cell)",
+        "## Per phase (median [IQR] over 5 reps)",
         "",
-        "| policy | phase | demand | G_safe | UAR | reject | checked | starved |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| policy | phase | demand | G_safe | UAR | reject | checked | starved | checked_rate |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
-    for cell in summary["cells"]:
-        if cell["overall"].get("rep", 0) != 0:
-            continue
-        for m in cell["phases"]:
-            chk = m["checked_rate"]
-            chk_s = "—" if chk is None else f"{chk:.2f}"
-            frac = _alias_frac(m, "strong_frac_of_bg", "strong_frac_of_rg") or 0.0
-            lines.append(
-                f"| {m['policy']} | {m['phase']} | {frac:.1f} Bg | "
-                f"{m['safe_slo_goodput']:.3f} | {m['unsafe_admission_rate']:.3f} | "
-                f"{m['reject_rate']:.3f} | {chk_s} | {m['n_starved']} |"
-            )
+    for m in pooled_phases:
+        lines.append(
+            f"| {m['policy']} | {m['phase']} | {m['strong_frac_of_bg']:.1f} Bg | "
+            f"{fmt_stat(m['safe_slo_goodput'])} | {fmt_stat(m['unsafe_admission_rate'])} | "
+            f"{fmt_stat(m['reject_rate'])} | {fmt_stat(m['n_checked'], digits=1)} | "
+            f"{fmt_stat(m['n_starved'], digits=1)} | {fmt_stat(m['checked_rate'], digits=2)} |"
+        )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"refreshed {out}")
 
 
 def _e4() -> None:
     out = results_dir("e4")
-    summary = json.loads((out / "metrics.json").read_text())
-    summary["bg"] = 0.4
-    for ph in summary.get("phases") or []:
-        frac = _alias_frac(ph, "offered_strong_frac_of_bg", "offered_strong_frac_of_rg")
-        if frac is not None:
-            ph["offered_strong_frac_of_bg"] = frac
-    for cell in summary.get("cells") or []:
-        for m in cell.get("phases") or []:
-            frac = _alias_frac(m, "offered_strong_frac_of_bg", "offered_strong_frac_of_rg")
-            if frac is not None:
-                m["offered_strong_frac_of_bg"] = frac
-    _patch_phase_checked(out, summary.get("cells") or [])
+    pat = re.compile(rf"^r(\d+)_({POLICY_RE})\.jsonl$")
+    cells = []
+    for f in sorted(out.glob("r*.jsonl")):
+        m = pat.match(f.name)
+        if not m:
+            continue
+        rep, policy = int(m.group(1)), m.group(2)
+        recs = load_jsonl(f, RunRecord)
+        overall = aggregate(recs, duration_s=E4_DUR)
+        overall.update({"policy": policy, "rep": rep, "n": len(recs)})
+        cells.append(
+            {
+                "overall": overall,
+                "phases": _phase_rows(
+                    recs,
+                    E4_PHASES,
+                    policy=policy,
+                    rep=rep,
+                    extra_fn=lambda row, sus: row.update(
+                        {
+                            "suspicious_frac": sus,
+                            "offered_strong_frac_of_bg": _offered_bg(sus),
+                        }
+                    ),
+                ),
+            }
+        )
+    pooled = pool_by(
+        [c["overall"] for c in cells],
+        ("policy",),
+        (
+            "safe_slo_goodput",
+            "unsafe_admission_rate",
+            "uar_light",
+            "uar_strong",
+            "uar_bypass",
+            "reject_rate",
+        ),
+    )
+    pooled.sort(key=lambda m: POLICY_ORDER.index(m["policy"]))
+    pooled_phases = pool_by(
+        [p for c in cells for p in c["phases"]],
+        ("policy", "phase", "suspicious_frac", "offered_strong_frac_of_bg"),
+        (
+            "safe_slo_goodput",
+            "unsafe_admission_rate",
+            "reject_rate",
+            "n_checked",
+            "n_starved",
+            "checked_rate",
+        ),
+    )
+    pooled_phases.sort(key=lambda m: (POLICY_ORDER.index(m["policy"]), m["phase"]))
+    summary = {
+        "bg": 0.4,
+        "r_gateway": 3.01,
+        "duration_s": E4_DUR,
+        "reps": 5,
+        "q_source": "frozen_g_light",
+        "phases": [
+            {
+                "until_s": u,
+                "suspicious_frac": f,
+                "offered_strong_frac_of_bg": _offered_bg(f),
+            }
+            for u, f in E4_PHASES
+        ],
+        "cells": cells,
+        "pooled": pooled,
+        "pooled_phases": pooled_phases,
+    }
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
         "# E4 safety-capacity exhaustion (frozen minilm-l12-h384 q, 5 reps)",
         "",
         "R_gateway=3.01 rps (constant), Bg=0.4 rps, 420s/policy × 5 reps.",
         "Suspicious/adversarial mix 5% → 50% → 5%. Offered strong demand ≈ 0.38 → 3.76 → 0.38 Bg.",
-        f"Tenant A only. q={summary.get('q_source')}. Live ApplyGuardrail, no Maverick.",
-        "Phenomenon: safety-resource exhaustion at constant gateway RPS. Do not use E4 to claim Proposed dominates.",
-        "Paper overall cells are median [p25, p75]. Do not retune τ.",
+        "Tenant A only. q=frozen_g_light. Live ApplyGuardrail, no Maverick.",
+        "Phenomenon: safety-resource exhaustion at constant gateway RPS. Do not claim Proposed dominates.",
+        "Latency is safety-stage, not user E2E. Paper cells are median [p25, p75].",
+        "checked/starved rebuilt from jsonl via applied_strong (E4 jsonl has t_s, not metadata.phase).",
         "",
         "## Overall (median [IQR])",
         "",
-        "| policy | G_safe | UAR | reject |",
-        "| --- | --- | --- | --- |",
+        "| policy | G_safe | UAR | light | strong | bypass | reject |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
-    for m in summary["pooled"]:
+    for m in pooled:
         lines.append(
             f"| {m['policy']} | {fmt_stat(m['safe_slo_goodput'])} | "
-            f"{fmt_stat(m['unsafe_admission_rate'])} | {fmt_stat(m['reject_rate'])} |"
+            f"{fmt_stat(m['unsafe_admission_rate'])} | {fmt_stat(m['uar_light'])} | "
+            f"{fmt_stat(m['uar_strong'])} | {fmt_stat(m['uar_bypass'])} | "
+            f"{fmt_stat(m['reject_rate'])} |"
         )
     lines += [
         "",
-        "## Per phase (rep 0)",
+        "## Per phase (median [IQR] over 5 reps)",
         "",
-        "| policy | phase | sus | offered | G_safe | UAR | reject | checked | starved |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| policy | phase | sus | offered | G_safe | UAR | reject | checked | starved | checked_rate |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
-    for cell in summary["cells"]:
-        if cell["overall"].get("rep", 0) != 0:
-            continue
-        for m in cell["phases"]:
-            chk = m["checked_rate"]
-            chk_s = "—" if chk is None else f"{chk:.2f}"
-            offered = _alias_frac(m, "offered_strong_frac_of_bg", "offered_strong_frac_of_rg") or 0.0
-            lines.append(
-                f"| {m['policy']} | {m['phase']} | {m['suspicious_frac']:.0%} | "
-                f"{offered:.2f} Bg | "
-                f"{m['safe_slo_goodput']:.3f} | {m['unsafe_admission_rate']:.3f} | "
-                f"{m['reject_rate']:.3f} | {chk_s} | {m['n_starved']} |"
-            )
+    for m in pooled_phases:
+        lines.append(
+            f"| {m['policy']} | {m['phase']} | {m['suspicious_frac']:.0%} | "
+            f"{m['offered_strong_frac_of_bg']:.2f} Bg | "
+            f"{fmt_stat(m['safe_slo_goodput'])} | {fmt_stat(m['unsafe_admission_rate'])} | "
+            f"{fmt_stat(m['reject_rate'])} | {fmt_stat(m['n_checked'], digits=1)} | "
+            f"{fmt_stat(m['n_starved'], digits=1)} | {fmt_stat(m['checked_rate'], digits=2)} |"
+        )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"refreshed {out}")
 
 
 def _e5() -> None:
     out = results_dir("e5")
-    summary = json.loads((out / "metrics.json").read_text())
-    summary["bg"] = 0.4
-    for cell in summary.get("cells") or []:
-        frac = _alias_frac(cell, "strong_demand_frac_of_bg", "strong_demand_frac_of_rg")
-        if frac is not None:
-            cell["strong_demand_frac_of_bg"] = frac
+    pat = re.compile(r"^r(\d+)_(proposed_fail_closed|proposed_fail_open)_(\d+\.\d+)\.jsonl$")
+    cells = []
+    for f in sorted(out.glob("r*.jsonl")):
+        m = pat.match(f.name)
+        if not m:
+            continue
+        rep, mode, frac = int(m.group(1)), m.group(2), float(m.group(3))
+        recs = load_jsonl(f, RunRecord)
+        metrics = aggregate(recs, duration_s=E5_DUR)
+        metrics.update(e5_extra(recs))
+        metrics.update(
+            {
+                "mode": mode,
+                "fail_closed": "closed" in mode,
+                "strong_demand_frac_of_bg": frac,
+                "n": len(recs),
+                "rep": rep,
+            }
+        )
+        cells.append(metrics)
     pooled = pool_by(
-        summary["cells"],
+        cells,
         ("mode", "strong_demand_frac_of_bg"),
-        ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate", "bypass_rate_need"),
+        (
+            "safe_slo_goodput",
+            "unsafe_admission_rate",
+            "uar_light",
+            "uar_strong",
+            "uar_bypass",
+            "reject_rate",
+            "bypass_rate_need",
+            "n_checked",
+            "n_starved",
+            "n_need",
+        ),
     )
     pooled.sort(key=lambda m: (0 if "closed" in m["mode"] else 1, m["strong_demand_frac_of_bg"]))
-    summary["pooled"] = pooled
+    summary = {
+        "bg": 0.4,
+        "r_gateway": 3.01,
+        "duration_s": E5_DUR,
+        "reps": 5,
+        "q_source": "frozen_g_light",
+        "cells": cells,
+        "pooled": pooled,
+    }
     (out / "metrics.json").write_text(json.dumps(summary, indent=2))
     lines = [
         "# E5 fail-open vs fail-closed (frozen minilm-l12-h384 q, 5 reps)",
         "",
-        f"Proposed only. R_gateway=3.01, Bg=0.4, 60s/cell × {summary['reps']} reps. q={summary.get('q_source')}.",
+        "Proposed only. R_gateway=3.01, Bg=0.4, 60s/cell × 5 reps. q=frozen_g_light.",
         "Fail-open disables deadline so exhaustion can bypass. Fail-closed keeps frozen B4.",
-        "Paper cells are median [p25, p75]. MiniLM is a screener, not the authority. Do not retune τ.",
-        "Fail-open raises UAR without raising Safe Goodput. Residual fail-closed UAR is MiniLM FN, not bypass.",
+        "Paper cells are median [p25, p75]. MiniLM is an inexpensive risk estimator, not the authority.",
+        "Fail-closed: UAR_bypass = 0 (zero scheduler-induced bypass), not a GT-safety guarantee.",
+        "Fail-open admits all GT-unsafe in these cells and bypasses a large share of required strong checks",
+        "for only ~3% additional Safe Goodput. Residual fail-closed UAR is MiniLM FN and/or G_strong miss.",
+        "n_checked rebuilt from jsonl via applied_strong (formal records store action=None).",
         "",
-        "| mode | demand | G_safe | UAR | reject | bypass/need |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| mode | demand | G_safe | UAR | light | strong | bypass | reject | bypass/need | checked | starved |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for m in pooled:
         lines.append(
             f"| {m['mode']} | {m['strong_demand_frac_of_bg']:.1f} Bg | "
             f"{fmt_stat(m['safe_slo_goodput'])} | {fmt_stat(m['unsafe_admission_rate'])} | "
-            f"{fmt_stat(m['reject_rate'])} | {fmt_stat(m['bypass_rate_need'], digits=2)} |"
+            f"{fmt_stat(m['uar_light'])} | {fmt_stat(m['uar_strong'])} | {fmt_stat(m['uar_bypass'])} | "
+            f"{fmt_stat(m['reject_rate'])} | {fmt_stat(m['bypass_rate_need'], digits=2)} | "
+            f"{fmt_stat(m['n_checked'], digits=1)} | {fmt_stat(m['n_starved'], digits=1)} |"
         )
     (out / "metrics.md").write_text("\n".join(lines) + "\n")
     print(f"refreshed {out}")
@@ -387,9 +527,12 @@ def _e6() -> None:
         "",
         f"Same arrival process as E3 proposed overload. Fail-closed. Tenant A only. q={summary.get('q_source')}.",
         "Paper cells are median [p25, p75]. Full vs −NoEarlyReject is the systems headline. Do not retune τ.",
+        "P95 is **safety-stage** latency (scheduler wait + ApplyGuardrail), not user E2E",
+        "(E1–E6 have frozen q and no Maverick; MiniLM Function URL is not on the replay hot path).",
+        "Without deadline-aware early rejection the gateway does more strong-guard work without raising G_safe.",
         "−NoTenant ≈ Full because this cell is Tenant A only (not because q is bimodal).",
         "",
-        "| ablation | G_safe | UAR | reject | checked | P95 ms |",
+        "| ablation | G_safe | UAR | reject | checked | safety-stage P95 ms |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
     for m in summary["pooled"]:
@@ -414,6 +557,7 @@ def _e2e() -> None:
         "Does not retune τ or Bg. E1–E6 stay Maverick-off.",
         "replay_q uses frozen Function URL q (paper-comparable path). live_path scores every request",
         "via Function URL MiniLM (E0a P50 ~524 ms) and is not the 600 ms SLO architecture number.",
+        "E1–E6 P95 is safety-stage / controller-path latency. User E2E = G_light + safety stage + Maverick.",
         "",
         "| cell | G_safe@600 | G_safe@800 | UAR | e2e P50 | e2e P95 | TTFT P95 | admitted SLO |",
         "| --- | --- | --- | --- | --- | --- | --- | --- |",
@@ -449,16 +593,20 @@ Do not cite Nova Micro, laptop MiniLM, or old oracle tables.
 
 Proposed **does not guarantee GT safety**. It guarantees policy compliance **conditional on** \(q(x)\):
 it never bypasses a request the policy marks as requiring strong inspection.
+Fail-closed means **zero scheduler-induced bypass** (\(UAR_{bypass}=0\)), not MiniLM-FN-only residual UAR.
+
+E1–E6 P95 is **safety-stage / controller-path** latency (scheduler + ApplyGuardrail), not user E2E.
+MiniLM is an inexpensive risk estimator, not a low-latency guardrail.
 
 | exp | status | headline |
 | --- | --- | --- |
-| E0a | **done** Function URL MiniLM | freeze AUROC 0.986, P50/P95 524/619 ms, tenant-split 220 |
-| E1 | frozen MiniLM q, 5 reps | method locked; UAR is MiniLM FN (not fail-open); Always-Strong efficiency < 1 |
+| E0a | **done** Function URL MiniLM | freeze AUROC 0.986, P50/P95 524/619 ms; 220 split-band across freeze+XSTest+WildGuardTest |
+| E1 | frozen MiniLM q, 5 reps | Always-Strong wastes \(B_g\); UAR split (Always-Strong UAR is G_strong miss) |
 | E2 | frozen MiniLM q, 5 reps | tenant isolation: Proposed 65.5%/40.3% B coverage vs load-aware 29.9%/27.1% at 90:10/70:30 |
-| E3 | frozen MiniLM q, 5 reps | G_safe moves with strong-mix at fixed gateway RPS; phenomenon + MiniLM UAR |
-| E4 | frozen MiniLM q, 5 reps | exhaustion at constant RPS; **not** a Proposed-dominance result |
-| E5 | frozen MiniLM q, 5 reps | fail-open raises UAR without raising G_safe (use MiniLM numbers, not Nova UAR=0) |
-| E6 | frozen MiniLM q, 5 reps | −NoEarlyReject adds strong work and blows P95; −NoTenant ≈ Full because Tenant A only |
+| E3 | frozen MiniLM q, 5 reps | dynamic-load robustness at fixed RPS; not Proposed-dominance |
+| E4 | frozen MiniLM q, 5 reps | exhaustion at constant RPS; checked/starved from applied_strong; not dominance |
+| E5 | frozen MiniLM q, 5 reps | fail-open: UAR_bypass ↑, ~3% extra G_safe; fail-closed UAR_bypass = 0 |
+| E6 | frozen MiniLM q, 5 reps | −NoEarlyReject: +strong work, safety-stage P95 ~77×, same G_safe |
 | e2e | replay_q vs live_path | replay_q P50 ~584 ms is paper-comparable; live_path 6.3s/21s is Function URL on the hot path |
 
 Bg = gateway safety budget 0.4 rps, not ApplyGuardrail provider capacity (~71 rps). No E7/E8. Write the paper.

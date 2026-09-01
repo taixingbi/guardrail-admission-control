@@ -16,6 +16,6 @@ This is **not** Paper 9's 512+128 scout (`C*=1`, `R_knee≈1.84`). Short safety 
 - **R_knee** = 4.30 rps
 - **R_gateway** = **3.01 rps** (`0.7 × R_knee`)
 
-E3/E4 offered load stays at `R_gateway`. Strong demand is still relative to experimental `R_g=0.4` rps, so `1.5 R_g=0.6` rps of ApplyGuardrail demand at a total ~3 rps mix.
+E3/E4 offered load stays at `R_gateway`. Strong demand is still relative to experimental `B_g=0.4` rps, so `1.5 B_g=0.6` rps of ApplyGuardrail demand at a total ~3 rps mix.
 
-Caveat: G_light (Nova Micro) P50 is ~544 ms. The full gateway path must run G_light concurrently; E0c only characterizes Maverick.
+Caveat: MiniLM Function URL G_light P50 is ~524 ms (P95 ~619 ms). The full user path is G_light + safety stage + Maverick; E0c only characterizes Maverick. E1–E6 P95 is safety-stage latency only.

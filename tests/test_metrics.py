@@ -158,3 +158,124 @@ def test_legacy_jsonl_efficiency_reconstructs_from_q():
     )
     m = aggregate([waste, needed], duration_s=1.0)
     assert m["guardrail_capacity_efficiency"] == 0.5
+
+
+def test_applied_strong_counts_route_when_action_missing():
+    rec = _rec(
+        request_id="s",
+        q=0.9,
+        route="strong",
+        apply_guardrail_action=None,
+        decision=ScheduleDecision(
+            route="strong",
+            reason="strong_available",
+            need_strong=True,
+            policy_required=True,
+            q=0.9,
+            risk_required=True,
+        ),
+    )
+    m = aggregate([rec], duration_s=1.0)
+    assert m["n_checked"] == 1
+    assert m["n_starved"] == 0
+    assert m["n_strong_slot"] == 1
+
+
+def test_uar_splits_light_strong_bypass():
+    light = _rec(
+        request_id="light",
+        gt_label="unsafe",
+        admitted_to_llm=True,
+        safe=False,
+        q=0.2,
+        route="direct",
+        decision=ScheduleDecision(
+            route="direct",
+            reason="below_threshold",
+            need_strong=False,
+            policy_required=False,
+            q=0.2,
+            risk_required=False,
+        ),
+    )
+    strong_miss = _rec(
+        request_id="strong",
+        gt_label="unsafe",
+        admitted_to_llm=True,
+        safe=False,
+        q=0.9,
+        route="strong",
+        apply_guardrail_action=None,
+        decision=ScheduleDecision(
+            route="strong",
+            reason="strong_available",
+            need_strong=True,
+            policy_required=True,
+            q=0.9,
+            risk_required=True,
+        ),
+    )
+    bypass = _rec(
+        request_id="bypass",
+        gt_label="unsafe",
+        admitted_to_llm=True,
+        safe=False,
+        q=0.9,
+        route="direct",
+        decision=ScheduleDecision(
+            route="direct",
+            reason="fail_open_bypass",
+            need_strong=True,
+            policy_required=True,
+            q=0.9,
+            bypass=True,
+            risk_required=True,
+        ),
+    )
+    blocked = _rec(
+        request_id="ok",
+        gt_label="unsafe",
+        admitted_to_llm=False,
+        safe=True,
+        q=0.9,
+        route="reject",
+        decision=ScheduleDecision(
+            route="reject",
+            reason="guardrail_block",
+            need_strong=True,
+            policy_required=True,
+            q=0.9,
+            risk_required=True,
+        ),
+    )
+    m = aggregate([light, strong_miss, bypass, blocked], duration_s=1.0)
+    assert m["unsafe_admission_rate"] == 0.75
+    assert m["uar_light"] == 0.25
+    assert m["uar_strong"] == 0.25
+    assert m["uar_bypass"] == 0.25
+    assert abs(m["uar_light"] + m["uar_strong"] + m["uar_bypass"] - m["unsafe_admission_rate"]) < 1e-12
+
+
+def test_always_strong_uar_is_strong_miss_not_minilm_fn():
+    rec = _rec(
+        request_id="as",
+        policy="always_strong",
+        gt_label="unsafe",
+        admitted_to_llm=True,
+        safe=False,
+        q=0.1,
+        route="strong",
+        decision=ScheduleDecision(
+            route="strong",
+            reason="strong_available",
+            need_strong=True,
+            policy_required=True,
+            q=0.1,
+            risk_required=False,
+        ),
+    )
+    m = aggregate([rec], duration_s=1.0)
+    assert m["uar_light"] == 0.0
+    assert m["uar_strong"] == 1.0
+    assert m["uar_bypass"] == 0.0
+    assert m["unsafe_admission_rate"] == 1.0

@@ -4,6 +4,7 @@ Tenant A SLO 600 ms unchanged. Maverick C*=2. t_llm_ms=250 (E0c TTFT P50).
 Does not retune τ or Bg. E1–E6 stay Maverick-off.
 replay_q uses frozen Function URL q (paper-comparable path). live_path scores every request
 via Function URL MiniLM (E0a P50 ~524 ms) and is not the 600 ms SLO architecture number.
+E1–E6 P95 is safety-stage / controller-path latency. User E2E = G_light + safety stage + Maverick.
 
 | cell | G_safe@600 | G_safe@800 | UAR | e2e P50 | e2e P95 | TTFT P95 | admitted SLO |
 | --- | --- | --- | --- | --- | --- | --- | --- |

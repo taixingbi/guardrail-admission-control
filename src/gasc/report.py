@@ -21,13 +21,69 @@ def risk_required_of(r: RunRecord) -> bool:
 
 
 def applied_strong(r: RunRecord) -> bool:
-    """Request occupied ApplyGuardrail (or an equivalent strong slot)."""
+    """Request occupied ApplyGuardrail (or an equivalent strong slot).
+
+    Formal jsonl often stores apply_guardrail_action=None even when a strong
+    slot was used; route==strong / guardrail_block still count as occupancy.
+    """
     action = r.apply_guardrail_action or (r.metadata or {}).get("apply_guardrail_action")
     if action not in (None, "ERROR"):
         return True
     if r.decision.reason == "guardrail_block":
         return True
     return r.route == "strong"
+
+
+def occupancy(records: list[RunRecord]) -> dict:
+    """Need-strong vs actually occupied ApplyGuardrail slots."""
+    need = [r for r in records if r.decision.need_strong]
+    n_checked = sum(1 for r in need if applied_strong(r))
+    return {
+        "n_need": len(need),
+        "n_checked": n_checked,
+        "n_starved": len(need) - n_checked,
+        "checked_rate": (n_checked / len(need)) if need else None,
+        "n_strong_slot": sum(1 for r in records if applied_strong(r)),
+    }
+
+
+def uar_decompose(records: list[RunRecord]) -> dict:
+    """Split admitted GT-unsafe into light miss / strong miss / scheduler bypass.
+
+    UAR_light:  q below risk τ, direct, admitted (MiniLM FN / below-threshold).
+    UAR_strong: ApplyGuardrail occupied, did not block, admitted (G_strong miss).
+    UAR_bypass: policy required strong, scheduler bypassed, admitted.
+    """
+    unsafe = [r for r in records if r.gt_label == "unsafe"]
+    n = len(unsafe)
+
+    def _is_light(r: RunRecord) -> bool:
+        return r.admitted_to_llm and r.route == "direct" and not r.decision.bypass and not risk_required_of(r)
+
+    def _is_strong(r: RunRecord) -> bool:
+        return r.admitted_to_llm and applied_strong(r) and not r.decision.bypass
+
+    def _is_bypass(r: RunRecord) -> bool:
+        if not r.admitted_to_llm:
+            return False
+        if r.decision.bypass:
+            return True
+        return r.route == "direct" and risk_required_of(r) and not applied_strong(r)
+
+    n_light = sum(1 for r in unsafe if _is_light(r))
+    n_strong = sum(1 for r in unsafe if _is_strong(r))
+    n_bypass = sum(1 for r in unsafe if _is_bypass(r))
+    n_admitted = sum(1 for r in unsafe if r.admitted_to_llm)
+    return {
+        "n_unsafe": n,
+        "n_unsafe_admitted": n_admitted,
+        "uar_light": (n_light / n) if n else 0.0,
+        "uar_strong": (n_strong / n) if n else 0.0,
+        "uar_bypass": (n_bypass / n) if n else 0.0,
+        "n_uar_light": n_light,
+        "n_uar_strong": n_strong,
+        "n_uar_bypass": n_bypass,
+    }
 
 
 def aggregate(records: list[RunRecord], *, duration_s: float) -> dict:
@@ -44,14 +100,21 @@ def aggregate(records: list[RunRecord], *, duration_s: float) -> dict:
     b_slo = sum(1 for r in tenant_b if r.slo_ok)
     strong = [r for r in records if applied_strong(r)]
     required_strong = [r for r in strong if risk_required_of(r)]
+    parts = uar_decompose(records)
+    occ = occupancy(records)
     return {
         "n": len(records),
         "safe_slo_goodput": n_safe_slo / duration_s,
         "unsafe_admission_rate": (unsafe_admitted / len(unsafe)) if unsafe else 0.0,
+        "uar_light": parts["uar_light"],
+        "uar_strong": parts["uar_strong"],
+        "uar_bypass": parts["uar_bypass"],
         "critical_tenant_slo_attainment": (b_slo / len(tenant_b)) if tenant_b else None,
         "guardrail_capacity_efficiency": (len(required_strong) / len(strong)) if strong else None,
         "reject_rate": sum(1 for r in records if r.route == "reject") / max(len(records), 1),
         "bypass_count": sum(1 for r in records if r.decision.bypass),
+        **occ,
+        **{k: parts[k] for k in ("n_unsafe", "n_unsafe_admitted", "n_uar_light", "n_uar_strong", "n_uar_bypass")},
     }
 
 

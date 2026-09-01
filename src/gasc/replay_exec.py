@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
 from gasc.limiter import StrongLimiter
 from gasc.paths import repo_root
-from gasc.report import applied_strong
+from gasc.report import applied_strong, occupancy
 from gasc.scheduler import SchedulerInputs, decide, policy_compliant
 from gasc.schemas import FrozenPrompt, RunRecord, ScheduleDecision, TenantPolicy
 
@@ -238,11 +238,4 @@ async def run_scheduled(
 
 
 def need_occupancy(recs: list[RunRecord]) -> dict[str, Any]:
-    need = [r for r in recs if r.decision.need_strong]
-    n_checked = sum(1 for r in need if applied_strong(r))
-    return {
-        "n_need": len(need),
-        "n_checked": n_checked,
-        "n_starved": len(need) - n_checked,
-        "checked_rate": (n_checked / len(need)) if need else None,
-    }
+    return occupancy(recs)

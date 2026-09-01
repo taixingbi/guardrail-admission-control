@@ -33,7 +33,7 @@ Llama 4 Maverick 17B
 
 Inexpensive MiniLM risk estimation gates an expensive managed safety service. \(q(x)\) is a classifier probability (continuous), not a bimodal LLM JSON score.
 
-**Paper G_light is `minilm-l12-h384`** (bedrock-tenants Function URL alias; Lambda in-process classifier). It is **not** laptop MiniLM and **not** a Bedrock GPU / Converse FM. MiniLM is a **screener / risk estimator**. ApplyGuardrail is the **authoritative** strong check. Residual UAR (including MiniLM under-scoring some GT-unsafe, especially XSTest) is a classifier limit, not a scheduler bug. Do not retune \(\tau\) on WildGuardTest / XSTest.
+**Paper G_light is `minilm-l12-h384`** (bedrock-tenants Function URL alias; Lambda in-process classifier). It is **not** laptop MiniLM and **not** a Bedrock GPU / Converse FM. MiniLM is a **lightweight classifier / inexpensive risk estimator** (model size and role), not a low-latency guardrail — Function URL P50/P95 is ~524/619 ms, which is higher than ApplyGuardrail at C≤16. ApplyGuardrail is the **authoritative** strong check. Do not retune \(\tau\) on WildGuardTest / XSTest.
 
 `models/g_light` / `GASC_GLIGHT_BACKEND=local` is a fallback only — do not cite it as G_light. Nova Micro is appendix-only (`GASC_GLIGHT_BACKEND=nova`).
 
@@ -121,19 +121,24 @@ Rejects are policy-compliant and safe when they avoid admitting GT-unsafe traffi
 
 - **policy compliant:** required strong was checked or the request was rejected; bypass is non-compliant. This is compliance **given** \(q(x)\), not GT safety.
 - **safe:** GT-unsafe must not reach Maverick; reject is safe but not goodput
-- **Unsafe Admission Rate:** GT-unsafe admitted to Maverick / GT-unsafe. MiniLM false negatives (q below \(\tau\)) inflate UAR without a scheduler bypass.
+- **Unsafe Admission Rate:** GT-unsafe admitted to the LLM path / GT-unsafe. Decompose as \(UAR = UAR_{light} + UAR_{strong} + UAR_{bypass}\):
+  - \(UAR_{light}\): \(q\) below risk \(\tau\), direct, admitted (MiniLM FN / below-threshold)
+  - \(UAR_{strong}\): ApplyGuardrail occupied, did not block, admitted (G_strong miss)
+  - \(UAR_{bypass}\): policy required strong, scheduler bypassed, admitted
+  Always-Strong UAR is G_strong miss, not MiniLM FN. Fail-closed Proposed has \(UAR_{bypass}=0\); residual UAR may still include MiniLM FN and G_strong miss.
 - **Critical-tenant SLO attainment:** Tenant B among requests that should be served
 - **Guardrail capacity efficiency:** risk-required ApplyGuardrail occupancy / all ApplyGuardrail occupancy. Risk-required means \(q \ge \tau\) (tenant \(\tau\) for Proposed; else global \(\tau=0.50\)). Always-Strong occupancy with \(q < \tau\) is waste, so its efficiency is not identically 1.
+- **Safety-stage / controller-path latency:** scheduler wait + ApplyGuardrail. This is what E1–E6 P95 measures (frozen \(q\), no Maverick, MiniLM Function URL not on the replay hot path). User E2E = G_light + safety stage + Maverick. Safe SLO-Goodput in E1–E6 is SLO-compliant goodput under the modeled controller deadline, not a claimed real-user E2E SLO.
 
 ## Campaign status (locked)
 
 No E7/E8. Architecture is frozen. Paper G_light is Function URL `minilm-l12-h384`.
 
-**Claim (do not overstate):** Proposed guarantees **policy compliance conditional on** \(q(x)\): it never bypasses a request the policy marks as requiring strong inspection. Residual UAR is MiniLM false negatives (especially XSTest), not scheduler fail-open. Do not write “Proposed guarantees safety.”
+**Claim (do not overstate):** Proposed guarantees **policy compliance conditional on** \(q(x)\): it never bypasses a request the policy marks as requiring strong inspection. Fail-closed means **zero scheduler-induced bypass**. Residual UAR is MiniLM FN and/or ApplyGuardrail miss, not fail-open. Do not write “Proposed guarantees safety” or “residual UAR is MiniLM FN” for all policies.
 
 | Cell | Status |
 | --- | --- |
-| E0a | **Done.** Function URL MiniLM on freeze + XSTest + WildGuardTest. Freeze AUROC 0.986, P50/P95 524/619 ms, \(0.40\le q<0.75\) = 220. Same \(q\) as laptop MiniLM; latency is the endpoint. |
+| E0a | **Done.** Function URL MiniLM on freeze + XSTest + WildGuardTest. Freeze AUROC 0.986, P50/P95 524/619 ms. Split-band \(0.40\le q<0.75\) = **220 across scored evaluation sets** (freeze 38 + XSTest 40 + WildGuard 142), not 220 in freeze alone. Same \(q\) as laptop MiniLM; latency is the endpoint. |
 | E0b / E0c | Do not rerun. \(B_g=0.4\), \(R_{gateway}=3.01\) locked. |
 | E1–E6 | **Done.** Same frozen Function URL \(q\), 5 reps, median [p25, p75]. No Function URL on the replay hot path. |
 | E2 | Paper-level tenant result (split-band 220; Proposed A 100% direct / B 100% strong; B coverage 65.5%/40.3% vs load-aware 29.9%/27.1% at 90:10 / 70:30). |

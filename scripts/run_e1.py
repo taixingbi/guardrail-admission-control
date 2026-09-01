@@ -108,7 +108,15 @@ async def _run() -> dict:
         "pooled": pool_by(
             cells,
             ("policy", "strong_demand_frac_of_bg"),
-            ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate", "guardrail_capacity_efficiency"),
+            (
+                "safe_slo_goodput",
+                "unsafe_admission_rate",
+                "uar_light",
+                "uar_strong",
+                "uar_bypass",
+                "reject_rate",
+                "guardrail_capacity_efficiency",
+            ),
         ),
     }
     summary["pooled"].sort(key=lambda m: (POLICY_ORDER.index(m["policy"]), m["strong_demand_frac_of_bg"]))
@@ -125,7 +133,7 @@ def main() -> int:
         f"R_gateway={R_GATEWAY} rps, Bg={BG} rps (gateway safety budget, not provider capacity), "
         f"{DURATION_S:.0f}s/cell × {summary['reps']} reps. q={summary.get('q_source')}. Live ApplyGuardrail, no Maverick.",
         "Paper cells are median [p25, p75]. Do not retune τ.",
-        "UAR is MiniLM false negatives (q below τ, so scheduler never requires strong), not fail-open.",
+        "UAR = UAR_light + UAR_strong + UAR_bypass. Always-Strong UAR is G_strong miss, not MiniLM FN.",
         "Efficiency = risk-required strong occupancy / all strong occupancy (Always-Strong waste is q < τ).",
         "",
         "| policy | demand | G_safe | UAR | reject | efficiency |",

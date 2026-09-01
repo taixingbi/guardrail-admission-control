@@ -150,7 +150,17 @@ async def _run() -> dict:
         "pooled": pool_by(
             cells,
             ("mode", "strong_demand_frac_of_bg"),
-            ("safe_slo_goodput", "unsafe_admission_rate", "reject_rate", "bypass_rate_need"),
+            (
+                "safe_slo_goodput",
+                "unsafe_admission_rate",
+                "uar_light",
+                "uar_strong",
+                "uar_bypass",
+                "reject_rate",
+                "bypass_rate_need",
+                "n_checked",
+                "n_starved",
+            ),
         ),
     }
     summary["pooled"].sort(key=lambda m: (0 if "closed" in m["mode"] else 1, m["strong_demand_frac_of_bg"]))
@@ -166,8 +176,9 @@ def main() -> int:
         "",
         f"Proposed only. R_gateway={R_GATEWAY}, Bg={BG}, {DURATION_S:.0f}s/cell × {summary['reps']} reps. q={summary.get('q_source')}.",
         "Fail-open disables deadline so exhaustion can bypass. Fail-closed keeps frozen B4.",
-        "Paper cells are median [p25, p75]. MiniLM is a screener, not the authority. Do not retune τ.",
-        "Fail-open raises UAR without raising Safe Goodput. Residual fail-closed UAR is MiniLM FN, not bypass.",
+        "Paper cells are median [p25, p75]. MiniLM is an inexpensive risk estimator, not the authority.",
+        "Fail-closed: UAR_bypass = 0 (zero scheduler-induced bypass), not a GT-safety guarantee.",
+        "Fail-open admits all GT-unsafe in these cells for only ~3% additional Safe Goodput.",
         "",
         "| mode | demand | G_safe | UAR | reject | bypass/need |",
         "| --- | --- | --- | --- | --- | --- |",

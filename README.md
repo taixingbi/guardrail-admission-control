@@ -2,7 +2,7 @@
 
 **GASC** — Guardrail Admission for Safety Capacity.
 
-Multi-tenant gateway that treats **ApplyGuardrail as a finite shared safety resource** under a gateway-controlled budget \(B_g\) (not raw Bedrock capacity). Lightweight risk scores come from **MiniLM-L12-H384** (`minilm-l12-h384`). Answers come from **Llama 4 Maverick 17B**. The scheduler chooses `direct` / `strong` / `reject` and never bypasses a required strong check (fail-closed). Required is defined by \(q(x)\) and tenant \(\tau\); MiniLM false negatives are a classifier limit, not a scheduler bypass.
+Multi-tenant gateway that treats **ApplyGuardrail as a finite shared safety resource** under a gateway-controlled budget \(B_g\) (not raw Bedrock capacity). Lightweight risk scores come from **MiniLM-L12-H384** (`minilm-l12-h384`). Answers come from **Llama 4 Maverick 17B**. The scheduler chooses `direct` / `strong` / `reject` and never bypasses a required strong check (fail-closed). Required is defined by \(q(x)\) and tenant \(\tau\). Fail-closed means zero scheduler-induced bypass, not GT safety. MiniLM is an inexpensive risk estimator, not a low-latency guardrail.
 
 Locked design: [docs/experiment-design.md](docs/experiment-design.md). Knobs: [FREEZE.md](FREEZE.md).
 
