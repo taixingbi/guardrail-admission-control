@@ -1,3 +1,6 @@
+import pytest
+
+from gasc.clients.bedrock import GuardrailError
 from gasc.report import aggregate
 from gasc.risk import parse_minilm, parse_risk
 from gasc.scheduler import ScheduleDecision
@@ -28,6 +31,8 @@ def _rec(**kwargs) -> RunRecord:
         gt_label="safe",
     )
     base.update(kwargs)
+    if base["route"] == "strong" and "apply_guardrail_action" not in kwargs:
+        base["apply_guardrail_action"] = "NONE"  # a real strong check always returns a verdict
     return RunRecord(**base)
 
 
@@ -160,7 +165,8 @@ def test_legacy_jsonl_efficiency_reconstructs_from_q():
     assert m["guardrail_capacity_efficiency"] == 0.5
 
 
-def test_applied_strong_counts_route_when_action_missing():
+def test_aggregate_rejects_strong_route_without_verdict():
+    """Strong-routed records with no ApplyGuardrail action are a broken run, not a check."""
     rec = _rec(
         request_id="s",
         q=0.9,
@@ -175,7 +181,9 @@ def test_applied_strong_counts_route_when_action_missing():
             risk_required=True,
         ),
     )
-    m = aggregate([rec], duration_s=1.0)
+    with pytest.raises(GuardrailError):
+        aggregate([rec], duration_s=1.0)
+    m = aggregate([rec.model_copy(update={"apply_guardrail_action": "NONE"})], duration_s=1.0)
     assert m["n_checked"] == 1
     assert m["n_starved"] == 0
     assert m["n_strong_slot"] == 1
@@ -205,7 +213,7 @@ def test_uar_splits_light_strong_bypass():
         safe=False,
         q=0.9,
         route="strong",
-        apply_guardrail_action=None,
+        apply_guardrail_action="NONE",
         decision=ScheduleDecision(
             route="strong",
             reason="strong_available",
@@ -239,6 +247,7 @@ def test_uar_splits_light_strong_bypass():
         safe=True,
         q=0.9,
         route="reject",
+        apply_guardrail_action="GUARDRAIL_INTERVENED",
         decision=ScheduleDecision(
             route="reject",
             reason="guardrail_block",

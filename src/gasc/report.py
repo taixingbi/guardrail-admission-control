@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from gasc.clients.bedrock import GUARDRAIL_ACTIONS, GuardrailError
 from gasc.config import AppConfig
 from gasc.eval_binary import percentile
 from gasc.schemas import RunRecord
@@ -32,6 +33,26 @@ def applied_strong(r: RunRecord) -> bool:
     if r.decision.reason == "guardrail_block":
         return True
     return r.route == "strong"
+
+
+def check_guardrail_verdicts(records: list[RunRecord]) -> None:
+    """Refuse to aggregate strong-routed records that carry no ApplyGuardrail verdict.
+
+    Every request that reached route=="strong" or was blocked must have action
+    NONE or GUARDRAIL_INTERVENED. Records without one come from a broken guardrail
+    config (e.g. blank GASC_GUARDRAIL_ID) and must be rerun, not reported.
+    """
+    bad = 0
+    for r in records:
+        if r.route != "strong" and r.decision.reason != "guardrail_block":
+            continue
+        action = r.apply_guardrail_action or (r.metadata or {}).get("apply_guardrail_action")
+        if action not in GUARDRAIL_ACTIONS:
+            bad += 1
+    if bad:
+        raise GuardrailError(
+            f"{bad}/{len(records)} strong-routed records have no ApplyGuardrail verdict; rerun these cells"
+        )
 
 
 def occupancy(records: list[RunRecord]) -> dict:
@@ -87,6 +108,7 @@ def uar_decompose(records: list[RunRecord]) -> dict:
 
 
 def aggregate(records: list[RunRecord], *, duration_s: float) -> dict:
+    check_guardrail_verdicts(records)
     if duration_s <= 0:
         duration_s = 1.0
     n_safe_slo = sum(

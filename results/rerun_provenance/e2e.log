@@ -1,0 +1,103 @@
+E2e n=1888 live_q=1888
+E2e replay_q 40s …
+{
+  "n": 120,
+  "safe_slo_goodput": 1.775,
+  "unsafe_admission_rate": 0.0,
+  "uar_light": 0.0,
+  "uar_strong": 0.0,
+  "uar_bypass": 0.0,
+  "critical_tenant_slo_attainment": null,
+  "guardrail_capacity_efficiency": 1.0,
+  "reject_rate": 0.15,
+  "bypass_count": 0,
+  "n_need": 18,
+  "n_checked": 8,
+  "n_starved": 10,
+  "checked_rate": 0.4444444444444444,
+  "n_strong_slot": 8,
+  "n_unsafe": 17,
+  "n_unsafe_admitted": 0,
+  "n_uar_light": 0,
+  "n_uar_strong": 0,
+  "n_uar_bypass": 0,
+  "n_admitted": 102,
+  "e2e_p50_ms": 554.7916045179591,
+  "e2e_p95_ms": 703.4824872127501,
+  "ttft_p50_ms": 269.37949657440186,
+  "ttft_p95_ms": 343.3802366256714,
+  "g_light_p50_ms": null,
+  "g_light_p95_ms": null,
+  "slo_800_goodput": 2.525,
+  "n_llm_error": 0,
+  "slo_ok_admitted": 0.696078431372549,
+  "cell": "replay_q"
+}
+E2e live_path 40s …
+Traceback (most recent call last):
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/src/gasc/clients/minilm.py", line 74, in score_minilm_remote
+    payload = chat_completions(model=MINILM_ALIAS, text=text, region=region)
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/src/gasc/clients/minilm.py", line 40, in chat_completions
+    url = function_url(region=region)
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/src/gasc/clients/minilm.py", line 26, in function_url
+    url = boto3.client("lambda", region_name=region).get_function_url_config(FunctionName=LAMBDA_NAME)[
+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/.venv/lib/python3.14/site-packages/botocore/client.py", line 606, in _api_call
+    return self._make_api_call(operation_name, kwargs)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/.venv/lib/python3.14/site-packages/botocore/context.py", line 123, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/.venv/lib/python3.14/site-packages/botocore/client.py", line 1094, in _make_api_call
+    raise error_class(parsed_response, operation_name)
+botocore.errorfactory.ResourceNotFoundException: An error occurred (ResourceNotFoundException) when calling the GetFunctionUrlConfig operation: The resource you requested does not exist.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/scripts/run_e2e.py", line 250, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/scripts/run_e2e.py", line 219, in main
+    summary = asyncio.run(_run())
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/scripts/run_e2e.py", line 194, in _run
+    cell = await _cell(
+           ^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/scripts/run_e2e.py", line 177, in _cell
+    recs = list(await asyncio.gather(*[_scheduled(i, p) for i, p in enumerate(planned)]))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/scripts/run_e2e.py", line 164, in _scheduled
+    return await _one(
+           ^^^^^^^^^^^
+    ...<10 lines>...
+    )
+    ^
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/scripts/run_e2e.py", line 64, in _one
+    q, label, g_light_ms = await asyncio.to_thread(_score_live, prompt.text)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/threads.py", line 26, in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/scripts/run_e2e.py", line 44, in _score_live
+    q, label = score_minilm_remote(text)
+               ~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/h/Documents/paper/paper10-Guardrail-Admission-Control-ieee-psbd/guardrail-admission-control/src/gasc/clients/minilm.py", line 85, in score_minilm_remote
+    raise RuntimeError(f"minilm-l12-h384 Function URL failed after {retries} tries: {last}") from last
+RuntimeError: minilm-l12-h384 Function URL failed after 4 tries: An error occurred (ResourceNotFoundException) when calling the GetFunctionUrlConfig operation: The resource you requested does not exist.
+uv run python scripts/run_e2e.py  2.48s user 0.57s system 6% cpu 49.234 total
+exit 1

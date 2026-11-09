@@ -8,6 +8,11 @@ import boto3
 from botocore.exceptions import ClientError
 
 THROTTLE = {"ThrottlingException", "TooManyRequestsException", "ServiceQuotaExceededException"}
+GUARDRAIL_ACTIONS = {"NONE", "GUARDRAIL_INTERVENED"}
+
+
+class GuardrailError(RuntimeError):
+    """ApplyGuardrail did not return a usable verdict; the run must stop."""
 
 
 def bedrock_runtime(region: str = "us-east-1"):
@@ -87,8 +92,12 @@ def apply_guardrail(
             source="INPUT",
             content=[{"text": {"text": text}}],
         )
+        action = resp.get("action")
+        if action not in GUARDRAIL_ACTIONS:
+            # A blank/invalid guardrail ID can return 200 with no action; never treat that as a check.
+            return {"action": "ERROR", "error": f"ApplyGuardrail returned no valid action: {action!r}", "throttled": False}
         return {
-            "action": resp.get("action"),
+            "action": action,
             "outputs": resp.get("outputs") or [],
             "assessments": resp.get("assessments") or [],
             "throttled": False,

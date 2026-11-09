@@ -12,15 +12,18 @@ Fail-closed means **zero scheduler-induced bypass** (\(UAR_{bypass}=0\)), not Mi
 E1–E6 P95 is **safety-stage / controller-path** latency (scheduler + ApplyGuardrail), not user E2E.
 MiniLM is an inexpensive risk estimator, not a low-latency guardrail.
 
+Rerun 2026-11-08/09 with live guardrail `wmw1sagwsxi7` v1. The Aug 30–31 campaign (blank guardrail ID) is archived and must not be cited.
+
 | exp | status | headline |
 | --- | --- | --- |
-| E0a | **done** Function URL MiniLM | freeze AUROC 0.986, P50/P95 524/619 ms; 220 split-band across freeze+XSTest+WildGuardTest |
-| E1 | frozen MiniLM q, 5 reps | Always-Strong wastes \(B_g\); UAR split (Always-Strong UAR is G_strong miss) |
-| E2 | frozen MiniLM q, 5 reps | tenant isolation: Proposed 65.5%/40.3% B coverage vs load-aware 29.9%/27.1% at 90:10/70:30 |
-| E3 | frozen MiniLM q, 5 reps | dynamic-load robustness at fixed RPS; not Proposed-dominance |
-| E4 | frozen MiniLM q, 5 reps | exhaustion at constant RPS; checked/starved from applied_strong; not dominance |
-| E5 | frozen MiniLM q, 5 reps | fail-open: UAR_bypass ↑, ~3% extra G_safe; fail-closed UAR_bypass = 0 |
-| E6 | frozen MiniLM q, 5 reps | −NoEarlyReject: +strong work, safety-stage P95 ~77×, same G_safe |
-| e2e | replay_q vs live_path | replay_q P50 ~584 ms is paper-comparable; live_path 6.3s/21s is Function URL on the hot path |
+| E0a | done (unchanged) | freeze AUROC 0.986, P50/P95 524/619 ms |
+| E0b | rerun | B_g^raw 101.67 rps at C=16, P50/P95 141/231 ms |
+| E1 | rerun, 5 reps | Always-Strong G_safe 0.18 (rejects ~94%); adaptive ~2.5; UAR = MiniLM FN only |
+| E2 | rerun, 5 reps | B coverage 65.5/40.3/30.9/25.2% vs 29.9/27.1/25.6/22.0%; UAR_B lower at 70:30–30:70 |
+| E3 | rerun, 5 reps | Proposed G_safe 2.642 (best), reject 0.117 |
+| E4 | rerun, 5 reps | exhaustion at constant RPS; burst tied; Proposed UAR slightly higher |
+| E5 | rerun, 5 reps | fail-open UAR 0.61–0.64 vs 0.05–0.10, bypass 57–62%, ≤3% G_safe |
+| E6 | rerun, 5 reps | −NoEarlyReject: +34% strong work, safety-stage P95 178 → 2002 ms (×11), same G_safe |
+| e2e | replay_q rerun | E2E P50/P95 555/703 ms, UAR 0/17; live_path not rerun |
 
-Bg = gateway safety budget 0.4 rps, not ApplyGuardrail provider capacity (~71 rps). No E7/E8. Write the paper.
+Bg = gateway safety budget 0.4 rps, not ApplyGuardrail provider capacity (~102 rps). No E7/E8.

@@ -1,8 +1,8 @@
 # GASC campaign summary
 
-Locked Function URL MiniLM (`minilm-l12-h384`) campaign. E1–E6 replay frozen \(q\); live ApplyGuardrail; Maverick off except e2e. Median [p25, p75] over 5 reps. No E7/E8. Do not retune \(\tau\) or \(B_g\).
+Locked Function URL MiniLM (`minilm-l12-h384`) campaign; E0b–E6 + e2e `replay_q` **rerun 2026-11-08/09 with live guardrail `wmw1sagwsxi7` v1** (the Aug 30–31 run had a blank guardrail ID; archived in `_stale_blank_guardrail_2026-08-31/`, do not cite). E1–E6 replay frozen \(q\); live ApplyGuardrail; Maverick off except e2e. Median [p25, p75] over 5 reps. No E7/E8. Do not retune \(\tau\) or \(B_g\).
 
-**Claim:** Proposed guarantees **policy compliance conditional on** \(q(x)\) — it never bypasses a request the policy marks as requiring strong. Fail-closed means **zero scheduler-induced bypass** (\(UAR_{bypass}=0\)). It does **not** guarantee GT safety. Residual fail-closed UAR is MiniLM FN and/or ApplyGuardrail miss, not fail-open.
+**Claim:** Proposed guarantees **policy compliance conditional on** \(q(x)\) — it never bypasses a request the policy marks as requiring strong. Fail-closed means **zero scheduler-induced bypass** (\(UAR_{bypass}=0\)). It does **not** guarantee GT safety. Residual fail-closed UAR is almost entirely MiniLM FN (ApplyGuardrail misses are rare: 0 in E1/E6, ≤3 per policy in E3/E4, 9–21 per E2 cell).
 
 **Do not cite** Nova Micro, laptop MiniLM, or old oracle tables.
 
@@ -15,7 +15,9 @@ E1–E6 P95 is **safety-stage / controller-path** latency (scheduler wait + Appl
 | `e0a/` | Function URL \(q\) on freeze + XSTest + WildGuardTest |
 | `e0b/` `e0c/` | ApplyGuardrail raw capacity; Maverick knee (lock \(B_g\), \(R_{gateway}\)) |
 | `e1/`–`e6/` | 5-rep replay cells (`r0`…`r4` jsonl + `metrics.md`) |
-| `e2e/` | Proposed sanity: frozen \(q\) vs live Function URL on the hot path |
+| `e2e/` | Proposed sanity: frozen \(q\) + live guardrail + Maverick (`replay_q` only after rerun) |
+| `rerun_provenance/` | HEAD, diff, campaign log for the 2026-11 rerun |
+| `_stale_blank_guardrail_2026-08-31/` | invalid Aug campaign (blank guardrail ID) — do not cite |
 | `freeze/` | P4 prompt freeze (1888 / 472 families) |
 | `metrics.md` | one-line index |
 | `paper-tables.md` | locked paper table drafts |
@@ -25,57 +27,49 @@ E1–E6 P95 is **safety-stage / controller-path** latency (scheduler wait + Appl
 | knob | value |
 | --- | --- |
 | G_light | Function URL `minilm-l12-h384` (inexpensive risk estimator) |
-| G_strong | ApplyGuardrail `bklyj6c5nrb5` v1 |
+| G_strong | ApplyGuardrail `wmw1sagwsxi7` v1 (account 751605536513; re-created from `scripts/guardrail-content-policy.json`; original `bklyj6c5nrb5` unreachable) |
 | LLM | Llama 4 Maverick 17B |
 | \(\tau\) | 0.50 global; Tenant A 0.75 / B 0.40 |
 | \(B_g\) | **0.4 rps** gateway token-bucket (not provider capacity) |
-| \(B_g^{raw}\) | 71.4 rps at C=16 (E0b characterization only) |
+| \(B_g^{raw}\) | 101.67 rps at C=16 (E0b rerun; was 71.4) |
 | \(R_{gateway}\) | **3.01 rps** (`0.7 ×` Maverick knee 4.30; \(C^*=2\)) |
 | Fail mode | fail-closed (E5 compares open) |
 | Frozen prompts | 1888 (Haiku 4.5 judge; not Nova / Guardrail / Maverick) |
 
-## Headlines
+## Headlines (rerun)
 
-### E0a — G_light
+### E0a — G_light (unchanged)
 
-Freeze AUROC **0.986**, P50/P95 **524 / 619 ms**. Split-band \(0.40\le q<0.75\): **220 across scored evaluation sets** (freeze 38 + XSTest 40 + WildGuard 142). XSTest recall@0.50 is **0.375** — MiniLM is useful but imperfect.
+Freeze AUROC **0.986**, P50/P95 **524 / 619 ms**. XSTest recall@0.50 **0.375**. ApplyGuardrail is faster (E0b P50 141–181 ms at C≤16).
 
 ### E1 — static safety load (40 s)
 
-Always-Strong wastes \(B_g\) (efficiency **0.10 / 0.15 / 0.21** at 0.5 / 1.0 / 1.5 \(B_g\)). Proposed G_safe **2.73 / 2.55 / 2.40**; efficiency 1.00. Claim is efficiency, not Proposed-dominance vs load-aware/risk-only. Always-Strong UAR is G_strong miss.
+Always-Strong G_safe **0.20 / 0.18 / 0.18** (rejects 93–95%), efficiency 0.06 / 0.24 / 0.24. Proposed G_safe **2.70 / 2.53 / 2.40**; adaptive policies statistically close. UAR is MiniLM FN only (UAR_strong = UAR_bypass = 0 in every cell).
 
 ### E2 — multi-tenant isolation (120 s)
 
-Split-band: Proposed A **100% direct**, B **100% strong**. Tenant B coverage **65.5% / 40.3%** vs load-aware **29.9% / 27.1%** at 90:10 / 70:30. Headline is policy isolation / coverage, not UAR_B.
+Tenant B coverage Proposed **65.5 / 40.3 / 30.9 / 25.2%** vs load-aware **29.9 / 27.1 / 25.6 / 22.0%**. UAR_B Proposed **0.222 / 0.175 / 0.140 / 0.122** vs load-aware 0.231 / 0.242 / 0.232 / 0.206 (IQRs separate at 70:30–30:70).
 
 ### E3 — dynamic mix at fixed RPS (480 s)
 
-Phases 0.5 → 0.9 → 1.5 → 0.6 \(B_g\). Proposed overall G_safe **2.656**. Dynamic-load robustness; not a superiority experiment.
+Proposed G_safe **2.642** vs load-aware 2.600, risk-only 2.587, Always-Strong 0.167; overload phase 2.458 vs ~2.33. UAR 0.04–0.05 for adaptive policies.
 
 ### E4 — exhaustion at constant RPS (420 s)
 
-Suspicious mix 5% → 50% → 5% (offered strong ≈ 0.38 → 3.76 → 0.38 \(B_g\)). **Phenomenon only** — do not claim Proposed dominates. Checked/starved rebuilt via `applied_strong`.
+Proposed phases G_safe 2.817 → **1.478** → 2.850; checked rate 0.67 → 0.23 → 0.72. Burst phase tied across adaptive policies. Overall Proposed 2.257 (best) but UAR 0.059 vs 0.044–0.048.
 
 ### E5 — fail-open vs fail-closed
 
-At 1.5 \(B_g\): fail-closed UAR **0.436**, G_safe **2.333**, bypass/need **0**; fail-open UAR **1.0**, G_safe **2.400**, bypass/need **0.57**. Fail-open bypasses 57–62% of policy-required strong checks and drives UAR to 1.0 for only about 3% additional Safe Goodput. Fail-closed claim is **zero scheduler-induced bypass**, not a safety guarantee.
+1.5 \(B_g\): fail-closed UAR **0.051** (11/201), G_safe 2.333, bypass 0; fail-open UAR **0.611** (108/177), G_safe 2.350, bypass/need **0.57**. 2.0 \(B_g\): 0.095 → 0.636, bypass 0.62. ≤3% G_safe gain for 7–12× UAR.
 
 ### E6 — ablations (E3 overload 1.5 \(B_g\))
 
-Full: checked **29**, safety-stage P95 **26 ms**, UAR **0.46**. −NoEarlyReject: checked **39**, P95 **2002 ms**, UAR **0.64**. Same G_safe **2.467**. Without deadline-aware early rejection the gateway does substantially more strong-guard work without increasing safe goodput, while safety-stage P95 increases by roughly two orders of magnitude.
+Full: checked **29**, safety-stage P95 **178 ms**. −NoEarlyReject: checked **39**, P95 **2002 ms** (×11). G_safe 2.458, UAR 0.041, reject 0.175 identical.
 
-### e2e — wiring check
+### e2e — `replay_q`
 
-`replay_q` (frozen \(q\)) P50 **~584 ms** is paper-comparable. `live_path` P50 **6.3 s** / P95 **21 s** puts Function URL MiniLM on every request and is **not** the 600 ms SLO architecture number.
+Proposed 1.0 \(B_g\), live guardrail + Maverick: E2E P50/P95 **555 / 703 ms**, G_safe@600 1.775, UAR 0/17. `live_path` not rerun (Function URL absent in the new account).
 
-## Paper tables (cite these)
+## Paper tables
 
-E1 Proposed 1.5 \(B_g\): G_safe 2.400, UAR 0.545, reject 0.100, efficiency 1.00.
-
-E2 Proposed vs load-aware B coverage: 65.5% / 40.3% vs 29.9% / 27.1% (90:10 / 70:30).
-
-E5 1.5 \(B_g\): fail-closed UAR 0.436 bypass 0; fail-open UAR 1.0 bypass/need 0.57.
-
-E6 Full vs −NoEarlyReject: safety-stage P95 26 ms vs 2002 ms.
-
-Rebuild per-experiment `metrics.md` with `python3 scripts/refresh_replay_metrics.py` (no AWS). This summary is the locked campaign snapshot.
+See `paper-tables.md` (rebuilt from the rerun). Per-experiment `metrics.md` were written by the runners during the rerun.

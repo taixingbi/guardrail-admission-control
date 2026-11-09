@@ -178,7 +178,7 @@ def main() -> int:
         "Fail-open disables deadline so exhaustion can bypass. Fail-closed keeps frozen B4.",
         "Paper cells are median [p25, p75]. MiniLM is an inexpensive risk estimator, not the authority.",
         "Fail-closed: UAR_bypass = 0 (zero scheduler-induced bypass), not a GT-safety guarantee.",
-        "Fail-open bypasses 57–62% of policy-required strong checks and drives UAR to 1.0",
+        "Fail-open bypasses 57–62% of policy-required strong checks and raises UAR from 0.05–0.10 to 0.61–0.64",
         "for only about 3% additional Safe Goodput.",
         "",
         "| mode | demand | G_safe | UAR | reject | bypass/need |",

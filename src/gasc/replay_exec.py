@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from dotenv import load_dotenv
 
-from gasc.clients.bedrock import apply_guardrail, bedrock_runtime
+from gasc.clients.bedrock import GUARDRAIL_ACTIONS, GuardrailError, apply_guardrail, bedrock_runtime
 from gasc.limiter import StrongLimiter
 from gasc.paths import repo_root
 from gasc.report import applied_strong, occupancy
@@ -41,13 +41,25 @@ def make_limiter(*, overflow: str, reserved: dict[str, float] | None = None, bg_
     )
 
 
-def bedrock_session() -> dict[str, Any]:
+def bedrock_session(*, preflight: bool = True) -> dict[str, Any]:
+    """Resolve the frozen guardrail and prove it answers before any cell runs.
+
+    A blank GASC_GUARDRAIL_ID previously produced ~20 ms calls with action=None
+    that were silently counted as strong checks (E1–E6, Aug 30–31 campaign).
+    """
     load_dotenv(repo_root() / ".env")
-    return {
-        "guardrail_id": os.environ["GASC_GUARDRAIL_ID"],
-        "version": os.environ.get("GASC_GUARDRAIL_VERSION", "1"),
-        "client": bedrock_runtime(os.environ.get("AWS_REGION", "us-east-1")),
-    }
+    gid = os.environ.get("GASC_GUARDRAIL_ID", "").strip()
+    version = os.environ.get("GASC_GUARDRAIL_VERSION", "1").strip()
+    if not gid:
+        raise GuardrailError("GASC_GUARDRAIL_ID is empty; set it to the frozen guardrail (see FREEZE.md)")
+    if version.upper() == "DRAFT" and os.environ.get("GASC_ALLOW_DRAFT_GUARDRAIL") != "1":
+        raise GuardrailError("GASC_GUARDRAIL_VERSION=DRAFT; formal runs use a published version (FREEZE.md: 1)")
+    client = bedrock_runtime(os.environ.get("AWS_REGION", "us-east-1"))
+    if preflight:
+        out = apply_guardrail(client, guardrail_id=gid, guardrail_version=version, text="Hello")
+        if out.get("action") not in GUARDRAIL_ACTIONS:
+            raise GuardrailError(f"guardrail preflight failed for {gid} v{version}: {out.get('error') or out}")
+    return {"guardrail_id": gid, "version": version, "client": client}
 
 
 def decide_for(
@@ -124,6 +136,8 @@ async def apply_if_strong(
             action = out.get("action")
         finally:
             await limiter.release(tenant_id)
+        if action not in GUARDRAIL_ACTIONS:
+            raise GuardrailError(f"strong check returned no verdict ({action!r}): {out.get('error', '')}")
         if action == "GUARDRAIL_INTERVENED":
             route = "reject"
             decision = decision.model_copy(update={"route": "reject", "reason": "guardrail_block", "bypass": False})
@@ -210,6 +224,7 @@ async def run_scheduled(
         t_strong_ms=t_strong_ms,
         t_llm_ms=t_llm_ms,
     )
+    t_strong = time.perf_counter()
     route, decision, action = await apply_if_strong(
         client=client,
         guardrail_id=guardrail_id,
@@ -222,6 +237,9 @@ async def run_scheduled(
         api_lock=api_lock,
         on_full=on_full,
     )
+    if action is not None:
+        # Wait for a bucket token + ApplyGuardrail round trip; lets reports sanity-check against E0b.
+        metadata = {**(metadata or {}), "strong_ms": (time.perf_counter() - t_strong) * 1000}
     return finish_record(
         prompt=prompt,
         tenant=tenant,
