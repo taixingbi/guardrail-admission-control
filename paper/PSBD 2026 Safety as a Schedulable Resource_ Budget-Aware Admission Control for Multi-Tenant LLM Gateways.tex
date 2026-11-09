@@ -158,7 +158,39 @@ Each E1--E6 condition was repeated five times; we report the median across repet
 
 \subsection{Experiment Sequence}
 
-We run three characterization experiments before the main study: E0a characterizes the MiniLM risk estimator's score distribution and separability across the four risk classes; E0b characterizes the latency and throughput of the managed ApplyGuardrail-style strong check in isolation; and E0c characterizes the latency and throughput of the Llama 4 Maverick generation backend in isolation. These establish baseline per-component behavior before the admission controller is introduced.
+We run three characterization experiments before the main study: E0a characterizes the MiniLM risk estimator's score distribution and separability across the four risk classes; E0b characterizes the latency and throughput of the managed ApplyGuardrail-style strong check in isolation; and E0c characterizes the latency and throughput of the Llama 4 Maverick generation backend in isolation. These establish baseline per-component behavior before the admission controller is introduced. Table~\ref{tab:e0} summarizes them. $\Glight$ separates the frozen benchmark well but transfers imperfectly (XSTest recall 0.375 at $\tau=0.5$), which is why it is used only to decide whether a strong check is needed, never as the authority. It is also not faster than the strong check: its endpoint P50 (524~ms) exceeds ApplyGuardrail's (141--181~ms at concurrency $\le 16$), so its role is cost reduction, not latency reduction. ApplyGuardrail sustains about 100~RPS before P95 degrades, whereas Maverick saturates at concurrency 2 (4.30~RPS); we set the gateway load to $R_{\text{gateway}} = 0.7 \times 4.30 = 3.01$~RPS.
+
+\begin{table}[t]
+\caption{Component Characterization (E0). Latencies in ms.}
+\label{tab:e0}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccc}
+\toprule
+\multicolumn{5}{l}{\textbf{E0a: $\Glight$ (MiniLM-L12-H384), $\tau=0.5$}} \\
+\textbf{Set ($n$)} & \textbf{AUROC} & \textbf{Recall} & \textbf{FPR} & \textbf{P50 / P95} \\
+\midrule
+Frozen (1888) & 0.986 & 0.956 & 0.034 & 524 / 619 \\
+XSTest (450) & 0.811 & 0.375 & 0.048 & 522 / 628 \\
+WildGuardTest (1699) & 0.876 & 0.720 & 0.105 & 661 / 1356 \\
+\midrule
+\multicolumn{5}{l}{\textbf{E0b: ApplyGuardrail (strong check)}} \\
+\textbf{Concurrency} & \textbf{RPS} & \textbf{P50} & \textbf{P95} & \textbf{Throttle} \\
+\midrule
+1 & 5.25 & 181 & 254 & 0 \\
+16 & 101.67 & 141 & 231 & 0 \\
+32 & 110.17 & 147 & 806 & 0.1\% \\
+\midrule
+\multicolumn{5}{l}{\textbf{E0c: Llama 4 Maverick (generation)}} \\
+\textbf{Concurrency} & \textbf{RPS} & \textbf{TTFT P50} & \textbf{TTFT P95} & \textbf{E2E P95} \\
+\midrule
+1 & 2.10 & 252 & 327 & 556 \\
+2 & 4.30 & 249 & 322 & 563 \\
+4 & 2.00 & 1094 & 6697 & 6838 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 To isolate scheduling effects from estimator and generation-backend variability, E1--E6 replay the frozen risk scores $q(x)$ produced during E0a rather than re-running $\Glight$ live, while still invoking the strong guardrail (ApplyGuardrail) live; the generation backend is not placed on the hot path of these experiments. We separately run an end-to-end check (proposed controller, $1.0\Bg$, 40~s) with frozen $q(x)$, the live strong guardrail, and the live Maverick backend on the hot path: user-perceived end-to-end latency is P50/P95 555/703~ms, Safe SLO-Goodput is 1.775~RPS at the 600~ms deadline, 70\% of admitted requests meet it, and 0 of 17 ground-truth unsafe requests reach generation.
 
@@ -192,27 +224,29 @@ Table~\ref{tab:e1e3} compares the four policies. Always-Strong spends the entire
 
 \subsection{Tenant Isolation (E2)}
 
-Table~\ref{tab:e2} shows strong-check coverage for a minority sensitive tenant under two scheduling policies as the tenant mix is varied from 90:10 (majority:sensitive) down to 30:70. Under load-aware scheduling, which allocates strong-guardrail capacity in proportion to per-tenant request volume, the sensitive tenant's coverage falls as its share of traffic shrinks, dropping to 29.9\% when it represents only 10\% of total traffic. Tenant-aware scheduling, which reserves capacity for higher-sensitivity tenants regardless of volume, raises coverage to 65.5\% at the same 90:10 mix, and continues to dominate load-aware coverage across every mix we tested, though the gap narrows as the sensitive tenant's own share of traffic grows. This result shows that a purely load-proportional allocation of a shared safety resource systematically disadvantages low-volume, high-sensitivity tenants across the full range of tenant mixes, not only at the most favorable operating point, and that an explicit tenant-aware reservation policy is necessary to correct this. The extra coverage also reduces the sensitive tenant's unsafe admission rate $\mathrm{UAR}_B$: tenant-aware scheduling admits 0.175, 0.140, and 0.122 of that tenant's ground-truth unsafe requests at 70:30, 50:50, and 30:70, versus 0.242, 0.232, and 0.206 under load-aware scheduling, with non-overlapping interquartile ranges; at 90:10 the difference (0.222 vs.\ 0.231) is within run-to-run noise. Part of this gain comes from the sensitive tenant's lower threshold ($\tau{=}0.40$) rather than from the reservation alone; the risk-only baseline, which shares neither, has the highest $\mathrm{UAR}_B$ (0.231--0.294).
+Table~\ref{tab:e2} shows strong-check coverage for a minority sensitive tenant under two scheduling policies as the tenant mix is varied from 90:10 (majority:sensitive) down to 30:70. Under load-aware scheduling, which allocates strong-guardrail capacity in proportion to per-tenant request volume, the sensitive tenant's coverage falls as its share of traffic shrinks, dropping to 29.9\% when it represents only 10\% of total traffic. Tenant-aware scheduling, which reserves capacity for higher-sensitivity tenants regardless of volume, raises coverage to 65.5\% at the same 90:10 mix, and continues to dominate load-aware coverage across every mix we tested, though the gap narrows as the sensitive tenant's own share of traffic grows. This result shows that a purely load-proportional allocation of a shared safety resource systematically disadvantages low-volume, high-sensitivity tenants across the full range of tenant mixes, not only at the most favorable operating point, and that an explicit tenant-aware reservation policy is necessary to correct this. The extra coverage also reduces the sensitive tenant's unsafe admission rate $\mathrm{UAR}_B$: tenant-aware scheduling admits 0.175, 0.140, and 0.122 of that tenant's ground-truth unsafe requests at 70:30, 50:50, and 30:70, versus 0.242, 0.232, and 0.206 under load-aware scheduling, with non-overlapping interquartile ranges; at 90:10 the difference (0.222 vs.\ 0.231) is within run-to-run noise. The $\mathrm{UAR}_B$ gain comes from the sensitive tenant's lower threshold ($\tau{=}0.40$), not from the reservation: Section~\ref{sec:sens} shows that $\mathrm{UAR}_B$ is unchanged when the reservation is removed ($\rho = 0$), while coverage drops. The risk-only baseline, which uses neither, has the highest $\mathrm{UAR}_B$ (0.231--0.294). Always-Strong attains the lowest $\mathrm{UAR}_B$ (0.01--0.05) only by checking 12--14\% of B's required checks and rejecting the rest, which collapses overall Safe SLO-Goodput to about 0.1~RPS against 1.2--2.0~RPS for the selective policies.
 
-\begin{table}[t]
-\caption{Sensitive-Tenant Strong-Check Coverage (Pooled over 5 Reps) and Unsafe Admission Rate $\mathrm{UAR}_B$ (Median [P25, P75]) Across Tenant Mixes}
+\begin{table*}[t]
+\caption{Sensitive-Tenant (B) Strong-Check Coverage (Pooled over 5 Reps) and Unsafe Admission Rate $\mathrm{UAR}_B$ (Median [P25, P75]) Across Tenant Mixes (E2)}
 \label{tab:e2}
 \centering
-\scriptsize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{lcccc}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccccccc}
 \toprule
- & \multicolumn{2}{c}{\textbf{Coverage}} & \multicolumn{2}{c}{$\mathbf{UAR}_B$} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-\textbf{Mix} & \textbf{Load-Aw.} & \textbf{Tenant-Aw.} & \textbf{Load-Aw.} & \textbf{Tenant-Aw.} \\
+ & \multicolumn{4}{c}{\textbf{Coverage of B's required strong checks}} & \multicolumn{4}{c}{$\mathbf{UAR}_B$} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}
+\textbf{Mix (A:B)} & \textbf{Always-Str.} & \textbf{Risk-only} & \textbf{Load-aware} & \textbf{Tenant-aware} & \textbf{Always-Str.} & \textbf{Risk-only} & \textbf{Load-aware} & \textbf{Tenant-aware} \\
 \midrule
-90:10 & 29.9\% & 65.5\% & 0.23 [0.16, 0.24] & 0.22 [0.13, 0.25] \\
-70:30 & 27.1\% & 40.3\% & 0.24 [0.22, 0.27] & 0.18 [0.15, 0.18] \\
-50:50 & 25.6\% & 30.9\% & 0.23 [0.21, 0.26] & 0.14 [0.14, 0.18] \\
-30:70 & 22.0\% & 25.2\% & 0.21 [0.20, 0.23] & 0.12 [0.10, 0.14] \\
+90:10 & 13.7\% & 31.3\% & 29.9\% & \textbf{65.5\%} & 0.05 [0.00, 0.05] & 0.29 [0.17, 0.30] & 0.23 [0.16, 0.24] & 0.22 [0.13, 0.25] \\
+70:30 & 12.7\% & 30.7\% & 27.1\% & \textbf{40.3\%} & 0.03 [0.02, 0.03] & 0.23 [0.13, 0.32] & 0.24 [0.22, 0.27] & 0.18 [0.15, 0.18] \\
+50:50 & 13.5\% & 26.9\% & 25.6\% & \textbf{30.9\%} & 0.01 [0.01, 0.01] & 0.26 [0.26, 0.27] & 0.23 [0.21, 0.26] & 0.14 [0.14, 0.18] \\
+30:70 & 12.4\% & 24.1\% & 22.0\% & \textbf{25.2\%} & 0.01 [0.01, 0.02] & 0.23 [0.22, 0.25] & 0.21 [0.20, 0.23] & 0.12 [0.10, 0.14] \\
+\midrule
+\multicolumn{5}{l}{Overall $\Gsafe$ at 90:10 / 30:70 (RPS)} & 0.11 / 0.10 & 1.82 / 1.21 & 1.76 / 1.19 & 1.98 / 1.21 \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 \begin{table}[t]
 \caption{Safety-Resource Exhaustion Under Constant Gateway Load (E4, Proposed; Median over 5 Reps)}
@@ -232,7 +266,27 @@ Table~\ref{tab:e2} shows strong-check coverage for a minority sensitive tenant u
 
 \subsection{Safety-Resource Exhaustion (E4)}
 
-We hold total gateway RPS constant at 3.01 and vary only the fraction of suspicious requests in the traffic mix from approximately 5\% to 50\% and back to 5\%. Table~\ref{tab:e4} reports offered strong-guardrail demand (relative to the safety budget $\Bg$), Safe SLO-Goodput, and Required-Strong Coverage (Section~\ref{sec:metrics}) at each operating point. As the suspicious fraction rises from 5\% to 50\%, offered strong-guardrail demand rises from $0.38\Bg$ to $3.76\Bg$---nearly a $10\times$ increase---while Safe SLO-Goodput falls from 2.817 [2.800, 2.850] to 1.478 [1.461, 1.550] and Required-Strong Coverage drops from 0.67 to 0.23, even though total gateway offered load remains fixed at 3.01~RPS throughout. This isolates safety-budget pressure from changes in aggregate offered request rate; because the generation backend is not on the hot path of this experiment (Section~\ref{sec:setup}), we do not directly measure Maverick-side inference load here, but the fixed offered RPS rules out increasing aggregate request volume as the driver of the observed degradation. Returning the suspicious fraction to 5\% recovers Safe SLO-Goodput to 2.850. This demonstrates that the safety subsystem can become an independent bottleneck on system throughput, distinct from and not explained by aggregate request volume---a failure mode that a purely volume-based admission controller would not detect. The exhaustion is a property of the workload, not of one policy: in the 50\% phase all three selective policies are statistically tied (1.478--1.494~RPS, overlapping IQRs), and Always-Strong falls to 0.083. Over the whole run Proposed has the highest Safe SLO-Goodput (2.257 vs.\ 2.229 Load-aware, 2.183 Risk-only) but a slightly higher UAR (0.059 vs.\ 0.044--0.048), so E4 does not show a safety advantage for any selective policy.
+We hold total gateway RPS constant at 3.01 and vary only the fraction of suspicious requests in the traffic mix from approximately 5\% to 50\% and back to 5\%. Table~\ref{tab:e4} reports offered strong-guardrail demand (relative to the safety budget $\Bg$), Safe SLO-Goodput, and Required-Strong Coverage (Section~\ref{sec:metrics}) at each operating point. As the suspicious fraction rises from 5\% to 50\%, offered strong-guardrail demand rises from $0.38\Bg$ to $3.76\Bg$---nearly a $10\times$ increase---while Safe SLO-Goodput falls from 2.817 [2.800, 2.850] to 1.478 [1.461, 1.550] and Required-Strong Coverage drops from 0.67 to 0.23, even though total gateway offered load remains fixed at 3.01~RPS throughout. This isolates safety-budget pressure from changes in aggregate offered request rate; because the generation backend is not on the hot path of this experiment (Section~\ref{sec:setup}), we do not directly measure Maverick-side inference load here, but the fixed offered RPS rules out increasing aggregate request volume as the driver of the observed degradation. Returning the suspicious fraction to 5\% recovers Safe SLO-Goodput to 2.850. This demonstrates that the safety subsystem can become an independent bottleneck on system throughput, distinct from and not explained by aggregate request volume---a failure mode that a purely volume-based admission controller would not detect. The exhaustion is a property of the workload, not of one policy: in the 50\% phase all three selective policies are statistically tied (1.478--1.494~RPS, overlapping IQRs), and Always-Strong falls to 0.083. Over the whole run Proposed has the highest Safe SLO-Goodput (2.257 vs.\ 2.229 Load-aware, 2.183 Risk-only) but a slightly higher UAR (0.059 vs.\ 0.044--0.048), so E4 does not show a safety advantage for any selective policy. Table~\ref{tab:phases} puts E3 and E4 side by side: Proposed's edge appears only in the moderate overload of E3 ($1.5\Bg$), where checking the deadline before spending a token (unlike Risk-only) and rejecting rather than queueing when no token is available (unlike Load-aware) leaves more of the budget for checks that can still meet the deadline. In the extreme overload of E4 ($3.76\Bg$) every selective policy saturates at the same coverage (0.22--0.23) and goodput, because any policy can complete only $\Bg$ checks per second.
+
+\begin{table}[t]
+\caption{Safe SLO-Goodput (RPS) by Phase, All Policies (E3, E4; Median over 5 Reps). Required-Strong Coverage in Parentheses for the Overload Phase.}
+\label{tab:phases}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lccccccc}
+\toprule
+ & \multicolumn{4}{c}{\textbf{E3: strong demand ($\times\Bg$)}} & \multicolumn{3}{c}{\textbf{E4: suspicious mix}} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-8}
+\textbf{Policy} & 0.5 & 0.9 & 1.5 & 0.6 & 5\% & 50\% & 5\% \\
+\midrule
+Always-Strong & 0.19 & 0.15 & 0.16 (.12) & 0.18 & 0.15 & 0.08 (.12) & 0.17 \\
+Risk-only & 2.74 & 2.58 & 2.33 (.39) & 2.67 & 2.76 & 1.49 (.22) & 2.73 \\
+Load-aware & 2.72 & 2.59 & 2.33 (.40) & 2.66 & 2.77 & 1.48 (.23) & 2.79 \\
+Proposed & 2.77 & 2.60 & \textbf{2.46} (.43) & 2.76 & 2.82 & 1.48 (.23) & 2.85 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Fail-Closed vs. Fail-Open (E5)}
 
@@ -276,11 +330,40 @@ No early rej. & 2.46 [2.36, 2.52] & 39 [38, 41] & 2002 [2002, 2002] \\
 
 Table~\ref{tab:e6} compares the full controller against a variant with early rejection disabled, so that requests requiring a strong check are always queued rather than rejected when they cannot meet their deadline. Disabling early rejection performs 34\% more strong-check work (29 to 39 calls over the measured window) with identical Safe SLO-Goodput, UAR (0.041), and reject rate, while increasing safety-stage P95 latency by approximately $11\times$ (178~ms, essentially one live guardrail call, to 2002~ms). The extra checks buy nothing: they block, after a long queue wait, requests that the full controller rejects at admission time because they cannot meet the deadline, and the requests that still cannot be served time out in the queue instead of being rejected immediately. Removing tenant awareness or the deadline estimate alone changes neither metric in this single-tenant cell. Early rejection therefore prevents the controller from spending strong-guardrail capacity on requests that cannot ultimately count toward Safe SLO-Goodput, and prevents the safety-stage queue from collapsing under load.
 
+\subsection{Sensitivity to $\rho$ and to the Deadline}
+\label{sec:sens}
+
+\begin{table}[t]
+\caption{Sensitivity to the Sensitive Tenant's Reserved Share $\rho$ (Proposed, E2 Arrivals; Coverage Pooled, Others Median over 5 Reps). $\rho=0.4$ Is the E2 Configuration.}
+\label{tab:rho}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccccc}
+\toprule
+ & \multicolumn{3}{c}{\textbf{90:10}} & \multicolumn{3}{c}{\textbf{70:30}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+$\boldsymbol{\rho}$ & \textbf{Cov.\ B} & $\mathbf{UAR}_B$ & $\boldsymbol{\Gsafe}$ & \textbf{Cov.\ B} & $\mathbf{UAR}_B$ & $\boldsymbol{\Gsafe}$ \\
+\midrule
+0.0 & 45.7\% & 0.17 & 1.98 & 32.4\% & 0.17 & 1.71 \\
+0.2 & 62.1\% & 0.22 & 1.99 & 37.2\% & 0.17 & 1.72 \\
+0.4 & 65.5\% & 0.22 & 1.98 & 40.3\% & 0.18 & 1.71 \\
+0.6 & 67.2\% & 0.22 & 1.98 & 43.8\% & 0.18 & 1.72 \\
+\midrule
+Load-aware & 29.9\% & 0.23 & 1.76 & 27.1\% & 0.24 & 1.63 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+We reran the E2 arrivals (same seeds) for the proposed controller with the sensitive tenant's reserved share $\rho \in \{0, 0.2, 0.6\}$ (Table~\ref{tab:rho}). Coverage of that tenant's required checks rises monotonically with $\rho$, from 45.7\% to 67.2\% at 90:10 and from 32.4\% to 43.8\% at 70:30, and largely saturates beyond $\rho = 0.2$ at 90:10. Overall Safe SLO-Goodput is flat in $\rho$ (1.98--1.99 and 1.71--1.72~RPS), so the reservation shifts checks toward the sensitive tenant at no measurable aggregate cost. $\mathrm{UAR}_B$ does not move with $\rho$ (0.17--0.22): its improvement over load-aware comes from the tenant-specific threshold, while the reservation buys coverage. Even at $\rho = 0$, coverage exceeds load-aware (45.7\% vs.\ 29.9\%) because the controller rejects instead of queueing when no token is available; the reservation adds a further 16--22 points at the 90:10 mix. The chosen $\rho = 0.4$ is therefore not a tuned optimum.
+
+We also reran the E6 overload trace with the majority tenant's deadline set to 400, 800, and 1200~ms (600~ms in E6), five repetitions each. Every outcome of both variants is identical across the four deadlines: the full controller performs 29 checks with safety-stage P95 of 178--188~ms, and disabling early rejection performs 39 checks with P95 of 2002~ms and the same Safe SLO-Goodput (2.458) and UAR (0.041). The reason is that at $\Bg = 0.4$ a token takes 2.5~s to refill, so once the bucket is empty the estimated wait exceeds any deadline in this range, and the same requests are rejected. The benefit of early rejection is thus insensitive to the deadline between 400 and 1200~ms; deadlines longer than the refill interval, where the deadline rather than the budget would bind, are outside this sweep.
+
 \section{Discussion}
 
 Taken together, these results support treating strong-guardrail capacity as a schedulable resource rather than as an unlimited service invoked whenever a per-request risk threshold is crossed. Tenant-aware allocation (E2) shows that fairness in a shared safety resource does not follow automatically from fairness in traffic volume, and requires an explicit reservation policy. Safety-resource exhaustion (E4) shows that overload of the safety subsystem is a distinct bottleneck that emerges without an increase in aggregate request rate, and needs its own monitoring and control. The fail-open comparison (E5) shows that under budget pressure, the temptation to relax mandatory checks yields a poor safety-for-throughput trade. The early-rejection ablation (E6) shows that deadline-aware admission is not merely a latency optimization but a mechanism that protects the safety queue itself from collapse.
 
-It is important to state precisely what the fail-closed invariant does and does not guarantee. It prevents scheduler-induced bypass of a policy-required strong check; it does not eliminate errors originating from the lightweight risk estimator or from the strong guardrail itself. In particular, the residual Unsafe Admission Rate of the proposed controller reflects false negatives from $\Glight$ (the dominant term in our runs) and occasional misses by the strong guardrail, and exceeds that of the always-strong baseline, which attains near-zero UAR only by rejecting more than 90\% of all traffic under the same budget. The controller guarantees policy compliance conditional on the risk score $q(x)$, not ground-truth safety. Its UAR advantage in E2 comes from directing scarce checks to the tenant whose policy demands them, not from better risk estimation; under a single tenant (E1, E3, E4) the selective policies have statistically similar UAR, and we do not claim that budget-constrained scheduling improves overall safety accuracy there.
+It is important to state precisely what the fail-closed invariant does and does not guarantee. It prevents scheduler-induced bypass of a policy-required strong check; it does not eliminate errors originating from the lightweight risk estimator or from the strong guardrail itself. In particular, the residual Unsafe Admission Rate of the proposed controller reflects false negatives from $\Glight$ (the dominant term in our runs) and occasional misses by the strong guardrail, and exceeds that of the always-strong baseline, which attains near-zero UAR only by rejecting more than 90\% of all traffic under the same budget. The controller guarantees policy compliance conditional on the risk score $q(x)$, not ground-truth safety. Its UAR advantage in E2 comes from applying the sensitive tenant's stricter threshold, which the reservation then backs with capacity (Section~\ref{sec:sens}), not from better risk estimation; under a single tenant (E1, E3, E4) the selective policies have statistically similar UAR, and we do not claim that budget-constrained scheduling improves overall safety accuracy there.
 
 A limitation of this study is that the workload generator, while validated and frozen before experimentation, is synthetic; the four risk classes and the tenant-mix scenarios approximate but do not replicate a live production traffic distribution. The strong-guardrail and generation backends are also specific managed services, and absolute latency and throughput numbers may differ across providers, though we expect the qualitative findings---the existence of a distinct safety-resource exhaustion mode and the benefit of tenant- and deadline-aware admission---to generalize across guardrail providers with similar capacity constraints.
 

@@ -173,6 +173,26 @@ Proposed, \(1.0 B_g\), 40 s, frozen \(q\) + live guardrail + Maverick (\(C^*=2\)
 
 ---
 
+## Sensitivity — reserved share ρ (sweep_rho, 2026-11-09)
+
+Proposed, E2 arrivals (same seeds), 120 s × 5 reps. ρ = 0.4 is `results/e2`.
+
+| ρ | 90:10 cov B | 90:10 UAR_B | 90:10 G_safe | 70:30 cov B | 70:30 UAR_B | 70:30 G_safe |
+| --- | ---: | --- | --- | ---: | --- | --- |
+| 0.0 | 45.7% | 0.167 [0.100, 0.222] | 1.983 | 32.4% | 0.169 [0.135, 0.173] | 1.708 |
+| 0.2 | 62.1% | 0.222 [0.100, 0.250] | 1.992 | 37.2% | 0.169 [0.135, 0.190] | 1.717 |
+| 0.4 | 65.5% | 0.222 [0.125, 0.250] | 1.983 | 40.3% | 0.175 [0.154, 0.183] | 1.708 |
+| 0.6 | 67.2% | 0.222 [0.100, 0.222] | 1.975 | 43.8% | 0.175 [0.127, 0.183] | 1.717 |
+| load-aware | 29.9% | 0.231 | 1.758 | 27.1% | 0.242 | 1.625 |
+
+*Claim.* Coverage rises monotonically with ρ at flat overall G_safe; UAR_B is flat in ρ, so the E2 UAR_B gain comes from Tenant B's τ=0.40, not from the reservation. ρ=0.4 is not a tuned optimum.
+
+## Sensitivity — deadline (sweep_deadline, 2026-11-09)
+
+E6 trace (1.5 B_g), Tenant A deadline 400 / 600 (E6) / 800 / 1200 ms, 5 reps. Every metric identical across deadlines: Full 29 checks, P95 178–188 ms; −NoEarlyReject 39 checks, P95 2002 ms; G_safe 2.458, UAR 0.041, reject 0.175 for both. At B_g = 0.4 the token refill interval (2.5 s) exceeds every deadline tested, so the budget, not the deadline, decides which requests are rejected. Deadlines > 2.5 s are not covered.
+
+---
+
 ## Suggested figure / table mapping
 
 | Paper slot | Source | One-line claim |
