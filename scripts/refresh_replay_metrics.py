@@ -530,7 +530,7 @@ def _e6() -> None:
         "P95 is **safety-stage** latency (scheduler wait + ApplyGuardrail), not user E2E",
         "(E1–E6 have frozen q and no Maverick; MiniLM Function URL is not on the replay hot path).",
         "Without deadline-aware early rejection the gateway does more strong-guard work without raising G_safe.",
-        "−NoTenant ≈ Full because this cell is Tenant A only (not because q is bimodal).",
+        "−NoTenant applies the global τ=0.5 instead of Tenant A’s 0.75 (G_safe 2.417 vs 2.458). −NoDeadline = Full: the wait estimate is 0 or a full 2.5 s refill, so the token check rejects the same requests. NoEarlyReject P95 2002 ms is the 2 s queue timeout.",
         "",
         "| ablation | G_safe | UAR | reject | checked | safety-stage P95 ms |",
         "| --- | --- | --- | --- | --- | --- |",

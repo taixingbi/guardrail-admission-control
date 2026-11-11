@@ -205,7 +205,7 @@ def main() -> int:
         f"Same arrival process as E3 proposed overload. Fail-closed. Tenant A only. q={summary.get('q_source')}.",
         "Paper cells are median [p25, p75]. Full vs −NoEarlyReject is the systems headline. Do not retune τ.",
         "P95 is safety-stage latency (scheduler + ApplyGuardrail), not user E2E.",
-        "−NoTenant ≈ Full because this cell is Tenant A only (not because q is bimodal).",
+        "−NoTenant applies the global τ=0.5 instead of Tenant A’s 0.75 (G_safe 2.417 vs 2.458). −NoDeadline = Full: the wait estimate is 0 or a full 2.5 s refill, so the token check rejects the same requests. NoEarlyReject P95 2002 ms is the 2 s queue timeout.",
         "",
         "| ablation | G_safe | UAR | reject | checked | safety-stage P95 ms |",
         "| --- | --- | --- | --- | --- | --- |",

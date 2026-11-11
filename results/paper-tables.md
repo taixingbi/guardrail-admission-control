@@ -116,7 +116,7 @@ Same arrivals as E3 Proposed overload phase (\(1.5 B_g\), 240–360 s).
 | −NoDeadline | 2.458 [2.358, 2.517] | 0.041 [0.035, 0.048] | 0.175 | 29 [27, 30] | 177 [177, 183] |
 | −NoEarlyReject | 2.458 [2.358, 2.517] | 0.041 [0.035, 0.048] | 0.175 | **39** [38, 41] | **2002** [2002, 2002] |
 
-Full → −NoEarlyReject: \(G_{\mathrm{safe}}\), UAR and reject identical; strong work +34%; safety-stage P95 **×11** (178 → 2002 ms). *Old text said ×77 (26 → 2002 ms); 26 ms was the blank-ID no-op.* −NoTenant ≈ Full because this cell is Tenant A only.
+Full → −NoEarlyReject: \(G_{\mathrm{safe}}\), UAR and reject identical; strong work +34%; safety-stage P95 **×11** (178 → 2002 ms). *Old text said ×77 (26 → 2002 ms); 26 ms was the blank-ID no-op.* −NoTenant applies global τ=0.5 (G_safe 2.417 vs 2.458); −NoDeadline = Full because the wait estimate is binary (0 or 2.5 s). P95 2002 ms = 2 s queue timeout.
 
 ---
 
