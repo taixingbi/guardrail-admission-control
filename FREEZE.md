@@ -32,6 +32,20 @@ E0b, E1–E6 and e2e `replay_q` were rerun against `wmw1sagwsxi7` v1 with τ, B_
 
 Guards added so this cannot recur: `bedrock_session()` refuses a blank ID or DRAFT version and preflights one ApplyGuardrail call; a strong check without a valid verdict raises `GuardrailError`; `aggregate()` rejects strong-routed records without a verdict.
 
+## Camera-ready lock (2026-11-11)
+
+Experiments are **final** for the PSBD 2026 camera-ready (SP01211, workshop, 10-page limit). No more runs, no refreeze. Audit on 2026-11-11: every strong check has a live verdict, zero fail-closed bypass, tables rebuild exactly from jsonl via `refresh_replay_metrics.py`.
+
+Known implementation caveats (disclosed in the paper, not fixed, do not "fix and rerun"):
+
+- `StrongLimiter.estimated_wait_ms` is binary: 0 if a token is available, else a full refill interval (2.5 s at \(B_g=0.4\)). The deadline test therefore reduces to token availability; Full = −NoDeadline and the 400–1200 ms deadline sweep is identical.
+- Always-Strong / Load-aware almost never queue (<0.1% of requests in E1–E4).
+- Proposed's single-tenant edge (E3) and higher UAR (E4) come from Tenant A's \(\tau=0.75\) vs the baselines' 0.5.
+- E6 −NoEarlyReject P95 2002 ms is `QUEUE_TIMEOUT_S = 2.0`.
+- `RunRecord.strong_wait_s` is never populated; do not cite it.
+
+Paper source of record: `paper/psbd2026-safety-admission-control-source.zip` (builds `paper/psbd2026-safety-admission-control.pdf`). Git tag `camera-ready-2026-11-11`.
+
 ## Do not
 
 - Train G_light on the P4 freeze or on WildGuardTest / XSTest.
